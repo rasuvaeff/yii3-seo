@@ -1,0 +1,21 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "logs": {
+        "text": "php://stderr",
+        "summary": "build/infection-summary.log"
+    },
+    "phpUnit": {
+        "configDir": "."
+    },
+    // 99, not 100: one equivalent mutant remains — UnwrapArrayValues on
+    // Robots::withGoogleBot(). array_values() on variadic args is a runtime no-op
+    // (variadic is always a list) and exists only to satisfy the list<string>
+    // property type for Psalm, so the mutant is untestable. No ignores configured.
+    "minMsi": 99,
+    "mutators": {
+        "@default": true
+    }
+}

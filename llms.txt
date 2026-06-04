@@ -1,0 +1,146 @@
+# yii3-seo
+
+Next.js-style typed SEO metadata for Yii3. One declarative `Metadata` object per
+page; site-wide `MetadataDefaults` merged in. Namespace: `Rasuvaeff\Yii3Seo`.
+
+## Install
+
+```bash
+composer require rasuvaeff/yii3-seo
+```
+
+## Rules
+
+- `SeoInjection` implements `MetaTagsInjectionInterface` + `LinkTagsInjectionInterface` — register it in `WebViewRenderer::injections`. Package DI also adds a service reset hook so request-local metadata does not leak in reusable runtimes.
+- Call `setMetadata(Metadata)` per request (via `SeoMetadataEvent` from an action) before the renderer fires.
+- `MetadataDefaults` is provided via the `rasuvaeff/yii3-seo` → `defaults` DI parameter; it is merged with the page `Metadata`.
+- Title resolution: page `Title::of('X')` + defaults `Title::template('%s | Acme', default: 'Acme')` → `X | Acme`. `Title::absolute('X')` bypasses the template. No page title → defaults `default`.
+- `metadataBase` (in defaults) resolves relative crawler-facing URLs: canonical, hreflang, `og:url`, `og:image`, `twitter:image`. Relative URL without base throws `InvalidArgumentException`. Icons/manifest are emitted as-is (browser-resolved).
+- Fallback cascade (on by default): `og:title`/`og:description` ← page title/description; `twitter:title`/`description`/`image` ← OpenGraph. Explicit values win.
+- Field merge: `openGraph`/`twitter` inherit unset fields from defaults; `applicationName`/`generator`/`themeColor`/`colorScheme`/`robots`/`icons`/`verification` are page-or-default; `jsonLd`/`other` concatenate defaults + page; `keywords`/`authors`/`creator`/`publisher`/`alternates`/`manifest` are page-only.
+- `<title>` and JSON-LD are NOT injected — render via `getTitle()` and `getJsonLdHtml()` in layout.
+- All URL/identifier validation throws `InvalidArgumentException` (message without trailing period).
+
+## API
+
+### Metadata (page object)
+
+```php
+use Rasuvaeff\Yii3Seo\Metadata;
+
+new Metadata(
+    title: 'Home',                 // string|Title; string -> Title::of()
+    description: 'Desc',
+    keywords: ['a', 'b'],
+    authors: [new Author(name: 'Alice', url: 'https://example.com/alice')],
+    applicationName: 'App', generator: 'Yii', creator: 'C', publisher: 'P',
+    themeColor: '#fff', colorScheme: 'dark light',
+    robots: Robots::index(),
+    alternates: new Alternates(canonical: '/page', languages: ['en' => '/en']),
+    openGraph: new OpenGraph(type: 'article', images: [new OgImage(url: '/og.jpg')]),
+    twitter: new TwitterCard(card: 'summary_large_image', site: '@site'),
+    icons: new Icons(icon: '/favicon.ico'),
+    manifest: '/site.webmanifest',
+    verification: new Verification(google: 'token'),
+    jsonLd: [JsonLd::fromArray(['@type' => 'WebPage'])],
+    other: [MetaTag::name('rating', 'general')],
+)
+```
+
+### MetadataDefaults (site-wide, in params)
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataDefaults;
+
+new MetadataDefaults(
+    metadataBase: 'https://example.com',     // validated absolute URL
+    title: Title::template('%s | Acme', default: 'Acme'),
+    applicationName: null, generator: null, themeColor: null, colorScheme: null,
+    robots: null,
+    openGraph: new OpenGraph(siteName: 'Acme', locale: 'en_US'),
+    twitter: new TwitterCard(card: 'summary_large_image', site: '@acme'),
+    icons: null, verification: null, jsonLd: [], other: [],
+)
+```
+
+### Title
+
+```php
+Title::of('Home')                                  // template applied
+Title::absolute('Home')                            // template bypassed
+Title::template('%s | Acme', default: 'Acme')      // defaults only
+```
+
+### Alternates / OpenGraph / OgImage / TwitterCard
+
+```php
+new Alternates(canonical: '/page', languages: ['en' => '/en', 'x-default' => '/'])
+new OpenGraph(title: null, description: null, type: null, url: '/p', siteName: 'S', locale: 'en_US', images: [/* OgImage */])  // type: null inherits defaults, renders og:type "website" if unset
+new OgImage(url: '/og.jpg', width: 1200, height: 630, alt: 'Alt', type: 'image/jpeg')
+new TwitterCard(card: null, site: '@s', creator: '@c', title: null, description: null, images: [])  // card: summary|summary_large_image|app|player; inherits defaults, renders "summary_large_image" if unset
+```
+
+### Robots
+
+```php
+Robots::index()        // index, follow
+Robots::noindex(); Robots::nofollow(); Robots::none(); Robots::noarchive();
+new Robots(['noindex', 'nosnippet'])
+Robots::index()->withNoSnippet()->withNoImageIndex()
+    ->withMaxSnippet(-1)->withMaxImagePreview('large')->withMaxVideoPreview(30)
+    ->withGoogleBot('noindex')   // separate <meta name="googlebot">
+```
+
+### Icons / Verification / Author / MetaTag / JsonLd
+
+```php
+new Icons(icon: '/favicon.ico', shortcut: '/favicon.ico', apple: '/apple.png', other: [new Icon(rel: 'mask-icon', url: '/safari.svg')])
+new Verification(google: 'g', yandex: 'y', bing: 'b', other: ['me' => 'm'])
+new Author(name: 'Alice', url: 'https://example.com/alice')
+MetaTag::name('rating', 'general'); MetaTag::property('fb:app_id', '123'); MetaTag::httpEquiv('x-ua-compatible', 'IE=edge');
+JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage'])
+```
+
+### SeoInjection
+
+```php
+$injection->setMetadata(Metadata $m): void
+$injection->clear(): void
+$injection->getTitle(): string          // resolved <title> for layout
+$injection->getMetaTags(): list<Meta>   // auto-injected by WebViewRenderer
+$injection->getLinkTags(): array<Link>  // auto-injected by WebViewRenderer
+$injection->getJsonLdHtml(): string     // render in layout manually
+```
+
+### Event wiring
+
+```php
+// config/common/events.php
+use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
+use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
+
+return [
+    SeoMetadataEvent::class => [[SetSeoMetadataEventHandler::class, '__invoke']],
+];
+
+// In action: inject EventDispatcherInterface, dispatch
+$this->eventDispatcher->dispatch(new SeoMetadataEvent(metadata: new Metadata(title: 'Home')));
+```
+
+### DI wiring
+
+```php
+// config/common/di.php
+WebViewRenderer::class => [
+    '__construct()' => [
+        'injections' => [CsrfViewInjection::class, SeoInjection::class],
+    ],
+],
+```
+
+### Layout
+
+```php
+<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
+<?= $seoInjection->getJsonLdHtml() ?>
+```
