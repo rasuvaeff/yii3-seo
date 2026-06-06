@@ -58,7 +58,9 @@
             "infection/extension-installer": true
         },
         "platform": {
-            "php": "8.3.20"
+            "php": "8.3.20",
+            "ext-bcmath": "1.0.0",
+            "ext-intl": "1.0.0"
         },
         "sort-packages": true
     },
