@@ -308,11 +308,17 @@ See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
 ```bash
 make install    # composer install
 make build      # full gate: validate + normalize + require-checker + cs + psalm + test
-make cs:fix     # fix code style
+make cs-fix     # fix code style
 make test       # run phpunit
+make test-coverage  # run coverage
+make mutation       # mutation testing
+make release-check  # build + rector + bc-check + mutation
 make test-coverage  # run phpunit with pcov coverage
 make mutation       # run infection with pcov coverage
 ```
+
+`make test-coverage` and `make mutation` bootstrap `pcov` inside the
+`composer:2` container because the base image has no coverage driver.
 
 ## License
 
