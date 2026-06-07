@@ -308,7 +308,7 @@ See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
 ```bash
 make install    # composer install
 make build      # full gate: validate + normalize + require-checker + cs + psalm + test
-make cs:fix     # fix code style
+make cs-fix     # fix code style
 make test       # run phpunit
 make test-coverage  # run phpunit with pcov coverage
 make mutation       # run infection with pcov coverage
