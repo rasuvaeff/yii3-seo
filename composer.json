@@ -27,7 +27,7 @@
     "require": {
         "php": "8.3 - 8.5",
         "ext-filter": "*",
-        "yiisoft/html": "^3.13",
+        "yiisoft/html": "^3.13 || ^4.0",
         "yiisoft/yii-view-renderer": "^7.4"
     },
     "require-dev": {
