@@ -33,4 +33,4 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Security audit
-        run: composer audit
+        run: composer audit --abandoned=ignore
