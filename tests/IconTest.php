@@ -5,49 +5,50 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Icon;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(Icon::class)]
-final class IconTest extends TestCase
+#[Test]
+#[Covers(Icon::class)]
+final class IconTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $icon = new Icon(rel: 'icon', url: '/favicon.ico', sizes: '32x32', type: 'image/x-icon');
 
-        $this->assertSame('icon', $icon->getRel());
-        $this->assertSame('/favicon.ico', $icon->getUrl());
-        $this->assertSame('32x32', $icon->getSizes());
-        $this->assertSame('image/x-icon', $icon->getType());
+        Assert::same($icon->getRel(), 'icon');
+        Assert::same($icon->getUrl(), '/favicon.ico');
+        Assert::same($icon->getSizes(), '32x32');
+        Assert::same($icon->getType(), 'image/x-icon');
     }
 
-    #[Test]
     public function optionalFieldsDefaultToNull(): void
     {
         $icon = new Icon(rel: 'icon', url: '/favicon.ico');
 
-        $this->assertNull($icon->getSizes());
-        $this->assertNull($icon->getType());
+        Assert::null($icon->getSizes());
+        Assert::null($icon->getType());
     }
 
-    #[Test]
     public function throwsOnEmptyRel(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Icon rel must not be empty');
-
-        new Icon(rel: '', url: '/favicon.ico');
+        try {
+            new Icon(rel: '', url: '/favicon.ico');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Icon rel must not be empty');
+        }
     }
 
-    #[Test]
     public function throwsOnEmptyUrl(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Icon URL must not be empty');
-
-        new Icon(rel: 'icon', url: '');
+        try {
+            new Icon(rel: 'icon', url: '');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Icon URL must not be empty');
+        }
     }
 }

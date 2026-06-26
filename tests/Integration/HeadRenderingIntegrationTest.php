@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests\Integration;
 
-use PHPUnit\Framework\Attributes\CoversNothing;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\JsonLd;
 use Rasuvaeff\Yii3Seo\Metadata;
@@ -18,6 +15,10 @@ use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
+use Testo\Assert;
+use Testo\Codecov\CoversNothing;
+use Testo\Lifecycle\BeforeTest;
+use Testo\Test;
 use Yiisoft\Yii\View\Renderer\LinkTagsInjectionInterface;
 use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
 
@@ -26,13 +27,14 @@ use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
  * SetSeoMetadataEventHandler -> SeoInjection) feeding a full `<head>` exactly as
  * WebViewRenderer + a layout would assemble it.
  */
+#[Test]
 #[CoversNothing]
-final class HeadRenderingIntegrationTest extends TestCase
+final class HeadRenderingIntegrationTest
 {
     private SeoInjection $injection;
 
-    #[\Override]
-    protected function setUp(): void
+    #[BeforeTest]
+    public function setUp(): void
     {
         $defaults = new MetadataDefaults(
             metadataBase: 'https://example.com',
@@ -43,7 +45,6 @@ final class HeadRenderingIntegrationTest extends TestCase
 
         $this->injection = new SeoInjection($defaults);
 
-        // The framework dispatches SeoMetadataEvent; the registered handler runs this.
         $handler = new SetSeoMetadataEventHandler(seoInjection: $this->injection);
         $handler(new SeoMetadataEvent(metadata: new Metadata(
             title: 'Awesome Product',
@@ -61,53 +62,36 @@ final class HeadRenderingIntegrationTest extends TestCase
         )));
     }
 
-    #[Test]
     public function seoInjectionFulfillsTheWebViewRendererContract(): void
     {
-        $this->assertInstanceOf(MetaTagsInjectionInterface::class, $this->injection);
-        $this->assertInstanceOf(LinkTagsInjectionInterface::class, $this->injection);
+        Assert::instanceOf($this->injection, MetaTagsInjectionInterface::class);
+        Assert::instanceOf($this->injection, LinkTagsInjectionInterface::class);
     }
 
-    #[Test]
     public function fullHeadIsAssembledFromDefaultsAndPageMetadata(): void
     {
         $head = $this->renderHead();
 
-        // Title template from defaults applied to the page title.
-        $this->assertStringContainsString('<title>Awesome Product | My Store</title>', $head);
-
-        // Per-page meta.
-        $this->assertStringContainsString('<meta name="description" content="Buy the awesome product.">', $head);
-
-        // OpenGraph: page type + defaults siteName/locale + title cascade + resolved image URL.
-        $this->assertStringContainsString('<meta property="og:title" content="Awesome Product | My Store">', $head);
-        $this->assertStringContainsString('<meta property="og:type" content="product">', $head);
-        $this->assertStringContainsString('<meta property="og:site_name" content="My Store">', $head);
-        $this->assertStringContainsString('<meta property="og:locale" content="en_US">', $head);
-        $this->assertStringContainsString('<meta property="og:image" content="https://example.com/og/awesome.jpg">', $head);
-        $this->assertStringContainsString('<meta property="og:image:width" content="1200">', $head);
-
-        // Twitter: card/site inherited from defaults, creator from page, image cascaded from OG.
-        $this->assertStringContainsString('<meta name="twitter:card" content="summary_large_image">', $head);
-        $this->assertStringContainsString('<meta name="twitter:site" content="@mystore">', $head);
-        $this->assertStringContainsString('<meta name="twitter:creator" content="@author">', $head);
-        $this->assertStringContainsString('<meta name="twitter:image" content="https://example.com/og/awesome.jpg">', $head);
-
-        // Link tags: canonical + hreflang resolved against metadataBase.
-        $this->assertStringContainsString('rel="canonical"', $head);
-        $this->assertStringContainsString('href="https://example.com/products/awesome"', $head);
-        $this->assertStringContainsString('hreflang="en"', $head);
-        $this->assertStringContainsString('href="https://example.com/en/products/awesome"', $head);
-
-        // JSON-LD.
-        $this->assertStringContainsString('<script type="application/ld+json">', $head);
-        $this->assertStringContainsString('"@type": "Product"', $head);
+        Assert::string($head)->contains('<title>Awesome Product | My Store</title>');
+        Assert::string($head)->contains('<meta name="description" content="Buy the awesome product.">');
+        Assert::string($head)->contains('<meta property="og:title" content="Awesome Product | My Store">');
+        Assert::string($head)->contains('<meta property="og:type" content="product">');
+        Assert::string($head)->contains('<meta property="og:site_name" content="My Store">');
+        Assert::string($head)->contains('<meta property="og:locale" content="en_US">');
+        Assert::string($head)->contains('<meta property="og:image" content="https://example.com/og/awesome.jpg">');
+        Assert::string($head)->contains('<meta property="og:image:width" content="1200">');
+        Assert::string($head)->contains('<meta name="twitter:card" content="summary_large_image">');
+        Assert::string($head)->contains('<meta name="twitter:site" content="@mystore">');
+        Assert::string($head)->contains('<meta name="twitter:creator" content="@author">');
+        Assert::string($head)->contains('<meta name="twitter:image" content="https://example.com/og/awesome.jpg">');
+        Assert::string($head)->contains('rel="canonical"');
+        Assert::string($head)->contains('href="https://example.com/products/awesome"');
+        Assert::string($head)->contains('hreflang="en"');
+        Assert::string($head)->contains('href="https://example.com/en/products/awesome"');
+        Assert::string($head)->contains('<script type="application/ld+json">');
+        Assert::string($head)->contains('"@type": "Product"');
     }
 
-    /**
-     * Mirrors what a Yii3 layout does: WebViewRenderer injects meta/link tags,
-     * the layout renders the title and JSON-LD manually.
-     */
     private function renderHead(): string
     {
         $parts = ['<title>' . htmlspecialchars($this->injection->getTitle(), ENT_QUOTES) . '</title>'];

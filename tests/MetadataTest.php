@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\Author;
 use Rasuvaeff\Yii3Seo\Icons;
@@ -18,35 +15,35 @@ use Rasuvaeff\Yii3Seo\Robots;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 use Rasuvaeff\Yii3Seo\Verification;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(Metadata::class)]
-final class MetadataTest extends TestCase
+#[Test]
+#[Covers(Metadata::class)]
+final class MetadataTest
 {
-    #[Test]
     public function stringTitleIsNormalisedToTitleObject(): void
     {
         $title = (new Metadata(title: 'Home'))->getTitle();
 
-        $this->assertInstanceOf(Title::class, $title);
-        $this->assertSame('Home', $title->getValue());
-        $this->assertFalse($title->isAbsolute());
+        Assert::instanceOf($title, Title::class);
+        Assert::same($title->getValue(), 'Home');
+        Assert::false($title->isAbsolute());
     }
 
-    #[Test]
     public function titleObjectIsKept(): void
     {
         $title = Title::absolute('Exact');
 
-        $this->assertSame($title, (new Metadata(title: $title))->getTitle());
+        Assert::same((new Metadata(title: $title))->getTitle(), $title);
     }
 
-    #[Test]
     public function titleIsNullByDefault(): void
     {
-        $this->assertNull((new Metadata())->getTitle());
+        Assert::null((new Metadata())->getTitle());
     }
 
-    #[Test]
     public function gettersReturnValues(): void
     {
         $robots = Robots::noindex();
@@ -80,34 +77,33 @@ final class MetadataTest extends TestCase
             other: [$other],
         );
 
-        $this->assertSame('D', $metadata->getDescription());
-        $this->assertSame(['a', 'b'], $metadata->getKeywords());
-        $this->assertSame([$author], $metadata->getAuthors());
-        $this->assertSame('App', $metadata->getApplicationName());
-        $this->assertSame('Gen', $metadata->getGenerator());
-        $this->assertSame('Creator', $metadata->getCreator());
-        $this->assertSame('Publisher', $metadata->getPublisher());
-        $this->assertSame('#fff', $metadata->getThemeColor());
-        $this->assertSame('dark', $metadata->getColorScheme());
-        $this->assertSame($robots, $metadata->getRobots());
-        $this->assertSame($alternates, $metadata->getAlternates());
-        $this->assertSame($openGraph, $metadata->getOpenGraph());
-        $this->assertSame($twitter, $metadata->getTwitter());
-        $this->assertSame($icons, $metadata->getIcons());
-        $this->assertSame('/site.webmanifest', $metadata->getManifest());
-        $this->assertSame($verification, $metadata->getVerification());
-        $this->assertSame([$jsonLd], $metadata->getJsonLd());
-        $this->assertSame([$other], $metadata->getOther());
+        Assert::same($metadata->getDescription(), 'D');
+        Assert::same($metadata->getKeywords(), ['a', 'b']);
+        Assert::same($metadata->getAuthors(), [$author]);
+        Assert::same($metadata->getApplicationName(), 'App');
+        Assert::same($metadata->getGenerator(), 'Gen');
+        Assert::same($metadata->getCreator(), 'Creator');
+        Assert::same($metadata->getPublisher(), 'Publisher');
+        Assert::same($metadata->getThemeColor(), '#fff');
+        Assert::same($metadata->getColorScheme(), 'dark');
+        Assert::same($metadata->getRobots(), $robots);
+        Assert::same($metadata->getAlternates(), $alternates);
+        Assert::same($metadata->getOpenGraph(), $openGraph);
+        Assert::same($metadata->getTwitter(), $twitter);
+        Assert::same($metadata->getIcons(), $icons);
+        Assert::same($metadata->getManifest(), '/site.webmanifest');
+        Assert::same($metadata->getVerification(), $verification);
+        Assert::same($metadata->getJsonLd(), [$jsonLd]);
+        Assert::same($metadata->getOther(), [$other]);
     }
 
-    #[Test]
     public function collectionsAreEmptyByDefault(): void
     {
         $metadata = new Metadata();
 
-        $this->assertSame([], $metadata->getKeywords());
-        $this->assertSame([], $metadata->getAuthors());
-        $this->assertSame([], $metadata->getJsonLd());
-        $this->assertSame([], $metadata->getOther());
+        Assert::same($metadata->getKeywords(), []);
+        Assert::same($metadata->getAuthors(), []);
+        Assert::same($metadata->getJsonLd(), []);
+        Assert::same($metadata->getOther(), []);
     }
 }

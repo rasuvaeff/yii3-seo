@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\SeoInjection;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(SeoInjection::class)]
-final class SeoInjectionDiConfigTest extends TestCase
+#[Test]
+#[Covers(SeoInjection::class)]
+final class SeoInjectionDiConfigTest
 {
-    #[Test]
     public function resetClearsPerRequestMetadataState(): void
     {
         $injection = new SeoInjection();
@@ -21,9 +21,9 @@ final class SeoInjectionDiConfigTest extends TestCase
 
         $injection->reset();
 
-        $this->assertSame('', $injection->getTitle());
-        $this->assertSame([], $injection->getMetaTags());
-        $this->assertSame([], $injection->getLinkTags());
-        $this->assertSame('', $injection->getJsonLdHtml());
+        Assert::same($injection->getTitle(), '');
+        Assert::same($injection->getMetaTags(), []);
+        Assert::same($injection->getLinkTags(), []);
+        Assert::same($injection->getJsonLdHtml(), '');
     }
 }

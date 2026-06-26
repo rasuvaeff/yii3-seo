@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(SetSeoMetadataEventHandler::class)]
-final class SetSeoMetadataEventHandlerTest extends TestCase
+#[Test]
+#[Covers(SetSeoMetadataEventHandler::class)]
+final class SetSeoMetadataEventHandlerTest
 {
-    #[Test]
     public function setsMetadataOnInjection(): void
     {
         $injection = new SeoInjection();
@@ -23,6 +23,6 @@ final class SetSeoMetadataEventHandlerTest extends TestCase
 
         $handler(new SeoMetadataEvent(metadata: new Metadata(title: 'Home')));
 
-        $this->assertSame('Home', $injection->getTitle());
+        Assert::same($injection->getTitle(), 'Home');
     }
 }
