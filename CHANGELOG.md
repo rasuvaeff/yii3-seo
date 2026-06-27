@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.1 — 2026-06-27
+
+- Migrate test suite from PHPUnit to Testo. Internal change, no public API impact.
+- CI: bump actions/checkout to v7.0.0.
+
 ## 1.0.0 — 2026-06-04
 
 Next.js-style declarative SEO metadata for Yii3.
@@ -23,3 +28,4 @@ Next.js-style declarative SEO metadata for Yii3.
 - `SeoMetadataEvent` + `SetSeoMetadataEventHandler` — event-based pattern for setting metadata from actions.
 - `MetaTag` — typed custom `name`, `property`, `http-equiv` meta tags.
 - `JsonLd` — `<script type="application/ld+json">` with `JSON_HEX_TAG` injection prevention.
+
