@@ -4,88 +4,83 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\JsonLd;
 use RuntimeException;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(JsonLd::class)]
-final class JsonLdTest extends TestCase
+#[Test]
+#[Covers(JsonLd::class)]
+final class JsonLdTest
 {
-    #[Test]
     public function rendersScriptTag(): void
     {
         $jsonLd = JsonLd::fromArray(['@type' => 'WebPage', 'name' => 'Home']);
         $html = $jsonLd->toHtml();
 
-        $this->assertStringStartsWith('<script type="application/ld+json">', $html);
-        $this->assertStringEndsWith('</script>', $html);
+        Assert::true(str_starts_with($html, '<script type="application/ld+json">'));
+        Assert::true(str_ends_with($html, '</script>'));
     }
 
-    #[Test]
     public function outputIsDeterministic(): void
     {
         $data = ['@type' => 'WebPage', 'name' => 'Home', 'url' => 'https://example.com'];
         $jsonLd = JsonLd::fromArray($data);
 
-        $this->assertSame($jsonLd->toHtml(), $jsonLd->toHtml());
+        Assert::same($jsonLd->toHtml(), $jsonLd->toHtml());
     }
 
-    #[Test]
     public function escapesClosingScriptTag(): void
     {
         $jsonLd = JsonLd::fromArray(['name' => '</script><script>alert(1)</script>']);
         $html = $jsonLd->toHtml();
 
-        $this->assertStringNotContainsString('</script><script>', $html);
+        Assert::string($html)->notContains('</script><script>');
     }
 
-    #[Test]
     public function encodesUnicodeWithoutEscaping(): void
     {
         $jsonLd = JsonLd::fromArray(['name' => 'Привет']);
         $html = $jsonLd->toHtml();
 
-        $this->assertStringContainsString('Привет', $html);
+        Assert::string($html)->contains('Привет');
     }
 
-    #[Test]
     public function doesNotEscapeForwardSlashes(): void
     {
         $jsonLd = JsonLd::fromArray(['url' => 'https://example.com/page']);
         $html = $jsonLd->toHtml();
 
-        $this->assertStringContainsString('https://example.com/page', $html);
+        Assert::string($html)->contains('https://example.com/page');
     }
 
-    #[Test]
     public function fromArrayFactoryWorks(): void
     {
         $data = ['@type' => 'Article'];
         $jsonLd = JsonLd::fromArray($data);
 
-        $this->assertSame($data, $jsonLd->getData());
+        Assert::same($jsonLd->getData(), $data);
     }
 
-    #[Test]
     public function getDataReturnsOriginal(): void
     {
         $data = ['@context' => 'https://schema.org', '@type' => 'Organization'];
         $jsonLd = new JsonLd(data: $data);
 
-        $this->assertSame($data, $jsonLd->getData());
+        Assert::same($jsonLd->getData(), $data);
     }
 
-    #[Test]
     public function throwsOnNonSerializableData(): void
     {
         $data = [];
         $data['value'] = &$data;
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Failed to encode JSON-LD data');
-
-        JsonLd::fromArray($data)->toHtml();
+        try {
+            JsonLd::fromArray($data)->toHtml();
+            Assert::fail('Expected RuntimeException');
+        } catch (RuntimeException $e) {
+            Assert::string($e->getMessage())->contains('Failed to encode JSON-LD data');
+        }
     }
 }

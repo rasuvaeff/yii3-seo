@@ -5,65 +5,67 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\OgImage;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(OgImage::class)]
-final class OgImageTest extends TestCase
+#[Test]
+#[Covers(OgImage::class)]
+final class OgImageTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $image = new OgImage(url: '/og.jpg', width: 1200, height: 630, alt: 'Alt', type: 'image/jpeg');
 
-        $this->assertSame('/og.jpg', $image->getUrl());
-        $this->assertSame(1200, $image->getWidth());
-        $this->assertSame(630, $image->getHeight());
-        $this->assertSame('Alt', $image->getAlt());
-        $this->assertSame('image/jpeg', $image->getType());
+        Assert::same($image->getUrl(), '/og.jpg');
+        Assert::same($image->getWidth(), 1200);
+        Assert::same($image->getHeight(), 630);
+        Assert::same($image->getAlt(), 'Alt');
+        Assert::same($image->getType(), 'image/jpeg');
     }
 
-    #[Test]
     public function optionalFieldsDefaultToNull(): void
     {
         $image = new OgImage(url: '/og.jpg');
 
-        $this->assertNull($image->getWidth());
-        $this->assertNull($image->getHeight());
-        $this->assertNull($image->getAlt());
-        $this->assertNull($image->getType());
+        Assert::null($image->getWidth());
+        Assert::null($image->getHeight());
+        Assert::null($image->getAlt());
+        Assert::null($image->getType());
     }
 
-    #[Test]
     public function throwsOnEmptyUrl(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('OpenGraph image URL must not be empty');
-
-        new OgImage(url: '');
+        try {
+            new OgImage(url: '');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('OpenGraph image URL must not be empty');
+        }
     }
 
-    #[Test]
     #[DataProvider('nonPositiveProvider')]
     public function throwsOnNonPositiveWidth(int $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("OpenGraph image width must be positive, got {$value}");
-
-        new OgImage(url: '/og.jpg', width: $value);
+        try {
+            new OgImage(url: '/og.jpg', width: $value);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains("OpenGraph image width must be positive, got {$value}");
+        }
     }
 
-    #[Test]
     #[DataProvider('nonPositiveProvider')]
     public function throwsOnNonPositiveHeight(int $value): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("OpenGraph image height must be positive, got {$value}");
-
-        new OgImage(url: '/og.jpg', height: $value);
+        try {
+            new OgImage(url: '/og.jpg', height: $value);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains("OpenGraph image height must be positive, got {$value}");
+        }
     }
 
     /** @return iterable<string, array{int}> */

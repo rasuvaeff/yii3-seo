@@ -310,8 +310,8 @@ See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
 make install    # composer install
 make build      # full gate: validate + normalize + require-checker + cs + psalm + test
 make cs-fix     # fix code style
-make test       # run phpunit
-make test-coverage  # run phpunit with pcov coverage
+make test       # run testo
+make test-coverage  # run testo with pcov coverage
 make mutation       # run infection with pcov coverage
 ```
 

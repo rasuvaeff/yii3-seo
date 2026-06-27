@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Alternates;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(Alternates::class)]
-final class AlternatesTest extends TestCase
+#[Test]
+#[Covers(Alternates::class)]
+final class AlternatesTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $alternates = new Alternates(
@@ -22,45 +22,47 @@ final class AlternatesTest extends TestCase
             languages: ['en' => '/en', 'en-US' => '/us', 'x-default' => '/'],
         );
 
-        $this->assertSame('/page', $alternates->getCanonical());
-        $this->assertSame(['en' => '/en', 'en-US' => '/us', 'x-default' => '/'], $alternates->getLanguages());
+        Assert::same($alternates->getCanonical(), '/page');
+        Assert::same($alternates->getLanguages(), ['en' => '/en', 'en-US' => '/us', 'x-default' => '/']);
     }
 
-    #[Test]
     public function defaultsAreEmpty(): void
     {
         $alternates = new Alternates();
 
-        $this->assertNull($alternates->getCanonical());
-        $this->assertSame([], $alternates->getLanguages());
+        Assert::null($alternates->getCanonical());
+        Assert::same($alternates->getLanguages(), []);
     }
 
-    #[Test]
     public function throwsOnEmptyCanonical(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Canonical URL must not be empty');
-
-        new Alternates(canonical: '');
+        try {
+            new Alternates(canonical: '');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Canonical URL must not be empty');
+        }
     }
 
-    #[Test]
     #[DataProvider('invalidLocaleProvider')]
     public function throwsOnInvalidLocale(string $locale): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("Invalid hreflang locale \"{$locale}\"");
-
-        new Alternates(languages: [$locale => '/x']);
+        try {
+            new Alternates(languages: [$locale => '/x']);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains("Invalid hreflang locale \"{$locale}\"");
+        }
     }
 
-    #[Test]
     public function throwsOnEmptyLanguageUrl(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Alternate URL for "en" must not be empty');
-
-        new Alternates(languages: ['en' => '']);
+        try {
+            new Alternates(languages: ['en' => '']);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Alternate URL for "en" must not be empty');
+        }
     }
 
     /** @return iterable<string, array{string}> */

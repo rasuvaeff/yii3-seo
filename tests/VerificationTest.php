@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Verification;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(Verification::class)]
-final class VerificationTest extends TestCase
+#[Test]
+#[Covers(Verification::class)]
+final class VerificationTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $verification = new Verification(
@@ -23,29 +23,29 @@ final class VerificationTest extends TestCase
             other: ['custom-verification' => 'c-token'],
         );
 
-        $this->assertSame('g-token', $verification->getGoogle());
-        $this->assertSame('y-token', $verification->getYandex());
-        $this->assertSame('b-token', $verification->getBing());
-        $this->assertSame(['custom-verification' => 'c-token'], $verification->getOther());
+        Assert::same($verification->getGoogle(), 'g-token');
+        Assert::same($verification->getYandex(), 'y-token');
+        Assert::same($verification->getBing(), 'b-token');
+        Assert::same($verification->getOther(), ['custom-verification' => 'c-token']);
     }
 
-    #[Test]
     public function defaultsAreEmpty(): void
     {
         $verification = new Verification();
 
-        $this->assertNull($verification->getGoogle());
-        $this->assertNull($verification->getYandex());
-        $this->assertNull($verification->getBing());
-        $this->assertSame([], $verification->getOther());
+        Assert::null($verification->getGoogle());
+        Assert::null($verification->getYandex());
+        Assert::null($verification->getBing());
+        Assert::same($verification->getOther(), []);
     }
 
-    #[Test]
     public function throwsOnEmptyOtherName(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Verification meta name must not be empty');
-
-        new Verification(other: ['' => 'token']);
+        try {
+            new Verification(other: ['' => 'token']);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Verification meta name must not be empty');
+        }
     }
 }

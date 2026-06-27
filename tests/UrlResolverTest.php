@@ -5,56 +5,56 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\UrlResolver;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(UrlResolver::class)]
-final class UrlResolverTest extends TestCase
+#[Test]
+#[Covers(UrlResolver::class)]
+final class UrlResolverTest
 {
-    #[Test]
     public function absoluteUrlIsReturnedUnchanged(): void
     {
         $resolver = new UrlResolver('https://example.com');
 
-        $this->assertSame('https://other.com/x', $resolver->resolve('https://other.com/x'));
+        Assert::same($resolver->resolve('https://other.com/x'), 'https://other.com/x');
     }
 
-    #[Test]
     public function relativeUrlIsJoinedToBase(): void
     {
         $resolver = new UrlResolver('https://example.com');
 
-        $this->assertSame('https://example.com/products/1', $resolver->resolve('/products/1'));
+        Assert::same($resolver->resolve('/products/1'), 'https://example.com/products/1');
     }
 
-    #[Test]
     public function joinNormalisesSlashes(): void
     {
         $resolver = new UrlResolver('https://example.com/');
 
-        $this->assertSame('https://example.com/products/1', $resolver->resolve('products/1'));
+        Assert::same($resolver->resolve('products/1'), 'https://example.com/products/1');
     }
 
-    #[Test]
     public function throwsOnRelativeUrlWithoutBase(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Relative URL "/x" requires a metadataBase to be configured');
-
-        ((new UrlResolver(null)))->resolve('/x');
+        try {
+            (new UrlResolver(null))->resolve('/x');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Relative URL "/x" requires a metadataBase to be configured');
+        }
     }
 
     #[DataProvider('invalidUrlProvider')]
-    #[Test]
     public function throwsOnInvalidUrl(string $url): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("Invalid URL \"{$url}\"");
-
-        (new UrlResolver('https://example.com'))->resolve($url);
+        try {
+            (new UrlResolver('https://example.com'))->resolve($url);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains("Invalid URL \"{$url}\"");
+        }
     }
 
     /** @return iterable<string, array{0: string}> */

@@ -41,8 +41,6 @@ docker run --rm -v "$PWD":/app -w /app composer:2 composer test
 
 Or with Make: `make build`, `make cs-fix`, `make psalm`, `make test`.
 
-`composer.lock` is gitignored (library).
-
 `make test-coverage` and `make mutation` temporarily install and enable `pcov`
 inside the `composer:2` container because the base image has no coverage driver.
 

@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(OpenGraph::class)]
-final class OpenGraphTest extends TestCase
+#[Test]
+#[Covers(OpenGraph::class)]
+final class OpenGraphTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $image = new OgImage(url: '/og.jpg');
@@ -28,44 +28,45 @@ final class OpenGraphTest extends TestCase
             images: [$image],
         );
 
-        $this->assertSame('T', $og->getTitle());
-        $this->assertSame('D', $og->getDescription());
-        $this->assertSame('article', $og->getType());
-        $this->assertSame('https://example.com', $og->getUrl());
-        $this->assertSame('S', $og->getSiteName());
-        $this->assertSame('en_US', $og->getLocale());
-        $this->assertSame([$image], $og->getImages());
+        Assert::same($og->getTitle(), 'T');
+        Assert::same($og->getDescription(), 'D');
+        Assert::same($og->getType(), 'article');
+        Assert::same($og->getUrl(), 'https://example.com');
+        Assert::same($og->getSiteName(), 'S');
+        Assert::same($og->getLocale(), 'en_US');
+        Assert::same($og->getImages(), [$image]);
     }
 
-    #[Test]
     public function defaultsAreEmpty(): void
     {
         $og = new OpenGraph();
 
-        $this->assertNull($og->getTitle());
-        $this->assertNull($og->getDescription());
-        $this->assertNull($og->getType());
-        $this->assertNull($og->getUrl());
-        $this->assertNull($og->getSiteName());
-        $this->assertNull($og->getLocale());
-        $this->assertSame([], $og->getImages());
+        Assert::null($og->getTitle());
+        Assert::null($og->getDescription());
+        Assert::null($og->getType());
+        Assert::null($og->getUrl());
+        Assert::null($og->getSiteName());
+        Assert::null($og->getLocale());
+        Assert::same($og->getImages(), []);
     }
 
-    #[Test]
     public function throwsOnEmptyType(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('OpenGraph type must not be empty');
-
-        new OpenGraph(type: '');
+        try {
+            new OpenGraph(type: '');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('OpenGraph type must not be empty');
+        }
     }
 
-    #[Test]
     public function throwsOnEmptyUrl(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('OpenGraph URL must not be empty');
-
-        new OpenGraph(url: '');
+        try {
+            new OpenGraph(url: '');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('OpenGraph URL must not be empty');
+        }
     }
 }

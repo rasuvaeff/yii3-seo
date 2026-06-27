@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo\Tests;
 
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(SeoMetadataEvent::class)]
-final class SeoMetadataEventTest extends TestCase
+#[Test]
+#[Covers(SeoMetadataEvent::class)]
+final class SeoMetadataEventTest
 {
-    #[Test]
     public function exposesMetadata(): void
     {
         $metadata = new Metadata(title: 'Home');
         $event = new SeoMetadataEvent(metadata: $metadata);
 
-        $this->assertSame($metadata, $event->metadata);
+        Assert::same($event->metadata, $metadata);
     }
 }

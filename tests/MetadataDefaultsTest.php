@@ -5,56 +5,55 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\Title;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 
-#[CoversClass(MetadataDefaults::class)]
-final class MetadataDefaultsTest extends TestCase
+#[Test]
+#[Covers(MetadataDefaults::class)]
+final class MetadataDefaultsTest
 {
-    #[Test]
     public function stringTitleIsNormalisedToTitleObject(): void
     {
         $title = (new MetadataDefaults(title: 'Acme'))->getTitle();
 
-        $this->assertInstanceOf(Title::class, $title);
-        $this->assertSame('Acme', $title->getValue());
+        Assert::instanceOf($title, Title::class);
+        Assert::same($title->getValue(), 'Acme');
     }
 
-    #[Test]
     public function metadataBaseIsStored(): void
     {
-        $this->assertSame('https://example.com', (new MetadataDefaults(metadataBase: 'https://example.com'))->getMetadataBase());
+        Assert::same((new MetadataDefaults(metadataBase: 'https://example.com'))->getMetadataBase(), 'https://example.com');
     }
 
-    #[Test]
     public function defaultsAreEmpty(): void
     {
         $defaults = new MetadataDefaults();
 
-        $this->assertNull($defaults->getMetadataBase());
-        $this->assertNull($defaults->getTitle());
-        $this->assertNull($defaults->getApplicationName());
-        $this->assertNull($defaults->getGenerator());
-        $this->assertNull($defaults->getThemeColor());
-        $this->assertNull($defaults->getColorScheme());
-        $this->assertNull($defaults->getRobots());
-        $this->assertNull($defaults->getOpenGraph());
-        $this->assertNull($defaults->getTwitter());
-        $this->assertNull($defaults->getIcons());
-        $this->assertNull($defaults->getVerification());
-        $this->assertSame([], $defaults->getJsonLd());
-        $this->assertSame([], $defaults->getOther());
+        Assert::null($defaults->getMetadataBase());
+        Assert::null($defaults->getTitle());
+        Assert::null($defaults->getApplicationName());
+        Assert::null($defaults->getGenerator());
+        Assert::null($defaults->getThemeColor());
+        Assert::null($defaults->getColorScheme());
+        Assert::null($defaults->getRobots());
+        Assert::null($defaults->getOpenGraph());
+        Assert::null($defaults->getTwitter());
+        Assert::null($defaults->getIcons());
+        Assert::null($defaults->getVerification());
+        Assert::same($defaults->getJsonLd(), []);
+        Assert::same($defaults->getOther(), []);
     }
 
-    #[Test]
     public function throwsOnInvalidMetadataBase(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid metadataBase URL "not-a-url"');
-
-        new MetadataDefaults(metadataBase: 'not-a-url');
+        try {
+            new MetadataDefaults(metadataBase: 'not-a-url');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Invalid metadataBase URL "not-a-url"');
+        }
     }
 }

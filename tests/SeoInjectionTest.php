@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\Author;
 use Rasuvaeff\Yii3Seo\Icon;
@@ -23,60 +20,58 @@ use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 use Rasuvaeff\Yii3Seo\Verification;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Test;
 use Yiisoft\Html\Tag\Link;
 use Yiisoft\Html\Tag\Meta;
 
-#[CoversClass(SeoInjection::class)]
-final class SeoInjectionTest extends TestCase
+#[Test]
+#[Covers(SeoInjection::class)]
+final class SeoInjectionTest
 {
-    #[Test]
     public function returnsEmptyWhenNothingSet(): void
     {
         $injection = new SeoInjection();
 
-        $this->assertSame([], $injection->getMetaTags());
-        $this->assertSame([], $injection->getLinkTags());
-        $this->assertSame('', $injection->getTitle());
-        $this->assertSame('', $injection->getJsonLdHtml());
+        Assert::same($injection->getMetaTags(), []);
+        Assert::same($injection->getLinkTags(), []);
+        Assert::same($injection->getTitle(), '');
+        Assert::same($injection->getJsonLdHtml(), '');
     }
 
-    #[Test]
     public function titleTemplateFromDefaultsIsApplied(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(title: Title::template('%s | Acme', default: 'Acme')));
         $injection->setMetadata(new Metadata(title: 'Home'));
 
-        $this->assertSame('Home | Acme', $injection->getTitle());
+        Assert::same($injection->getTitle(), 'Home | Acme');
     }
 
-    #[Test]
     public function absoluteTitleBypassesTemplate(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(title: Title::template('%s | Acme')));
         $injection->setMetadata(new Metadata(title: Title::absolute('Exact')));
 
-        $this->assertSame('Exact', $injection->getTitle());
+        Assert::same($injection->getTitle(), 'Exact');
     }
 
-    #[Test]
     public function defaultTitleUsedWhenPageHasNone(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(title: Title::template('%s | Acme', default: 'Acme')));
         $injection->setMetadata(new Metadata());
 
-        $this->assertSame('Acme', $injection->getTitle());
+        Assert::same($injection->getTitle(), 'Acme');
     }
 
-    #[Test]
     public function plainTitleWhenNoTemplate(): void
     {
         $injection = new SeoInjection();
         $injection->setMetadata(new Metadata(title: 'Home'));
 
-        $this->assertSame('Home', $injection->getTitle());
+        Assert::same($injection->getTitle(), 'Home');
     }
 
-    #[Test]
     public function descriptionKeywordsAndAuthorsAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -88,28 +83,26 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="description" content="My desc">', $meta);
-        $this->assertContains('<meta name="keywords" content="php, seo">', $meta);
-        $this->assertContains('<meta name="author" content="Alice">', $meta);
-        $this->assertStringContainsString('rel="author"', $this->renderLinks($injection));
+        Assert::contains($meta, '<meta name="description" content="My desc">');
+        Assert::contains($meta, '<meta name="keywords" content="php, seo">');
+        Assert::contains($meta, '<meta name="author" content="Alice">');
+        Assert::string($this->renderLinks($injection))->contains('rel="author"');
     }
 
-    #[Test]
     public function applicationNameComesFromDefaultsAndIsOverridable(): void
     {
         $defaults = new MetadataDefaults(applicationName: 'Site', generator: 'Yii');
 
         $fromDefaults = new SeoInjection($defaults);
         $fromDefaults->setMetadata(new Metadata());
-        $this->assertContains('<meta name="application-name" content="Site">', $this->renderMeta($fromDefaults));
-        $this->assertContains('<meta name="generator" content="Yii">', $this->renderMeta($fromDefaults));
+        Assert::contains($this->renderMeta($fromDefaults), '<meta name="application-name" content="Site">');
+        Assert::contains($this->renderMeta($fromDefaults), '<meta name="generator" content="Yii">');
 
         $overridden = new SeoInjection($defaults);
         $overridden->setMetadata(new Metadata(applicationName: 'Page'));
-        $this->assertContains('<meta name="application-name" content="Page">', $this->renderMeta($overridden));
+        Assert::contains($this->renderMeta($overridden), '<meta name="application-name" content="Page">');
     }
 
-    #[Test]
     public function creatorPublisherThemeColorAndColorSchemeAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -122,13 +115,12 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="creator" content="Creator">', $meta);
-        $this->assertContains('<meta name="publisher" content="Publisher">', $meta);
-        $this->assertContains('<meta name="theme-color" content="#ffffff">', $meta);
-        $this->assertContains('<meta name="color-scheme" content="dark light">', $meta);
+        Assert::contains($meta, '<meta name="creator" content="Creator">');
+        Assert::contains($meta, '<meta name="publisher" content="Publisher">');
+        Assert::contains($meta, '<meta name="theme-color" content="#ffffff">');
+        Assert::contains($meta, '<meta name="color-scheme" content="dark light">');
     }
 
-    #[Test]
     public function robotsAndGoogleBotAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -138,11 +130,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="robots" content="noindex, nofollow, max-image-preview:large">', $meta);
-        $this->assertContains('<meta name="googlebot" content="noindex">', $meta);
+        Assert::contains($meta, '<meta name="robots" content="noindex, nofollow, max-image-preview:large">');
+        Assert::contains($meta, '<meta name="googlebot" content="noindex">');
     }
 
-    #[Test]
     public function verificationTagsAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -152,13 +143,12 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="google-site-verification" content="g">', $meta);
-        $this->assertContains('<meta name="yandex-verification" content="y">', $meta);
-        $this->assertContains('<meta name="msvalidate.01" content="b">', $meta);
-        $this->assertContains('<meta name="me" content="m">', $meta);
+        Assert::contains($meta, '<meta name="google-site-verification" content="g">');
+        Assert::contains($meta, '<meta name="yandex-verification" content="y">');
+        Assert::contains($meta, '<meta name="msvalidate.01" content="b">');
+        Assert::contains($meta, '<meta name="me" content="m">');
     }
 
-    #[Test]
     public function customMetaTagsFromDefaultsAndPageAreRendered(): void
     {
         $defaults = new MetadataDefaults(other: [MetaTag::property('fb:app_id', '123')]);
@@ -170,12 +160,11 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="fb:app_id" content="123">', $meta);
-        $this->assertContains('<meta name="rating" content="general">', $meta);
-        $this->assertContains('<meta http-equiv="x-ua-compatible" content="IE=edge">', $meta);
+        Assert::contains($meta, '<meta property="fb:app_id" content="123">');
+        Assert::contains($meta, '<meta name="rating" content="general">');
+        Assert::contains($meta, '<meta http-equiv="x-ua-compatible" content="IE=edge">');
     }
 
-    #[Test]
     public function openGraphIsRenderedWithImageDimensions(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(metadataBase: 'https://example.com'));
@@ -193,20 +182,19 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="OG Title">', $meta);
-        $this->assertContains('<meta property="og:type" content="article">', $meta);
-        $this->assertContains('<meta property="og:description" content="OG Desc">', $meta);
-        $this->assertContains('<meta property="og:url" content="https://example.com/article">', $meta);
-        $this->assertContains('<meta property="og:site_name" content="My Site">', $meta);
-        $this->assertContains('<meta property="og:locale" content="en_US">', $meta);
-        $this->assertContains('<meta property="og:image" content="https://example.com/og.jpg">', $meta);
-        $this->assertContains('<meta property="og:image:width" content="1200">', $meta);
-        $this->assertContains('<meta property="og:image:height" content="630">', $meta);
-        $this->assertContains('<meta property="og:image:alt" content="Alt">', $meta);
-        $this->assertContains('<meta property="og:image:type" content="image/jpeg">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="OG Title">');
+        Assert::contains($meta, '<meta property="og:type" content="article">');
+        Assert::contains($meta, '<meta property="og:description" content="OG Desc">');
+        Assert::contains($meta, '<meta property="og:url" content="https://example.com/article">');
+        Assert::contains($meta, '<meta property="og:site_name" content="My Site">');
+        Assert::contains($meta, '<meta property="og:locale" content="en_US">');
+        Assert::contains($meta, '<meta property="og:image" content="https://example.com/og.jpg">');
+        Assert::contains($meta, '<meta property="og:image:width" content="1200">');
+        Assert::contains($meta, '<meta property="og:image:height" content="630">');
+        Assert::contains($meta, '<meta property="og:image:alt" content="Alt">');
+        Assert::contains($meta, '<meta property="og:image:type" content="image/jpeg">');
     }
 
-    #[Test]
     public function openGraphTitleAndDescriptionFallBackToMetadata(): void
     {
         $injection = new SeoInjection();
@@ -218,11 +206,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="Home">', $meta);
-        $this->assertContains('<meta property="og:description" content="Page desc">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="Home">');
+        Assert::contains($meta, '<meta property="og:description" content="Page desc">');
     }
 
-    #[Test]
     public function openGraphInheritsSiteNameFromDefaults(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(openGraph: new OpenGraph(siteName: 'Brand')));
@@ -230,11 +217,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="Page OG">', $meta);
-        $this->assertContains('<meta property="og:site_name" content="Brand">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="Page OG">');
+        Assert::contains($meta, '<meta property="og:site_name" content="Brand">');
     }
 
-    #[Test]
     public function twitterCardFallsBackToOpenGraph(): void
     {
         $injection = new SeoInjection();
@@ -245,13 +231,12 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:card" content="summary">', $meta);
-        $this->assertContains('<meta name="twitter:site" content="@site">', $meta);
-        $this->assertContains('<meta name="twitter:title" content="OG Title">', $meta);
-        $this->assertContains('<meta name="twitter:description" content="OG Desc">', $meta);
+        Assert::contains($meta, '<meta name="twitter:card" content="summary">');
+        Assert::contains($meta, '<meta name="twitter:site" content="@site">');
+        Assert::contains($meta, '<meta name="twitter:title" content="OG Title">');
+        Assert::contains($meta, '<meta name="twitter:description" content="OG Desc">');
     }
 
-    #[Test]
     public function twitterImagesFallBackToOpenGraphImages(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(metadataBase: 'https://example.com'));
@@ -260,10 +245,9 @@ final class SeoInjectionTest extends TestCase
             twitter: new TwitterCard(),
         ));
 
-        $this->assertContains('<meta name="twitter:image" content="https://example.com/og.jpg">', $this->renderMeta($injection));
+        Assert::contains($this->renderMeta($injection), '<meta name="twitter:image" content="https://example.com/og.jpg">');
     }
 
-    #[Test]
     public function canonicalAndHreflangAreResolvedAgainstBase(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(metadataBase: 'https://example.com'));
@@ -275,16 +259,15 @@ final class SeoInjectionTest extends TestCase
         ));
 
         $links = $injection->getLinkTags();
-        $this->assertArrayHasKey('canonical', $links);
-        $this->assertStringContainsString('href="https://example.com/products/1"', $links['canonical']->render());
+        Assert::array($links)->hasKeys('canonical');
+        Assert::string($links['canonical']->render())->contains('href="https://example.com/products/1"');
 
         $combined = $this->renderLinks($injection);
-        $this->assertStringContainsString('hreflang="en"', $combined);
-        $this->assertStringContainsString('href="https://example.com/en/products/1"', $combined);
-        $this->assertStringContainsString('hreflang="x-default"', $combined);
+        Assert::string($combined)->contains('hreflang="en"');
+        Assert::string($combined)->contains('href="https://example.com/en/products/1"');
+        Assert::string($combined)->contains('hreflang="x-default"');
     }
 
-    #[Test]
     public function absoluteUrlsPassThroughUnchanged(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(metadataBase: 'https://example.com'));
@@ -292,22 +275,22 @@ final class SeoInjectionTest extends TestCase
 
         $links = $injection->getLinkTags();
 
-        $this->assertStringContainsString('href="https://other.com/x"', $links['canonical']->render());
+        Assert::string($links['canonical']->render())->contains('href="https://other.com/x"');
     }
 
-    #[Test]
     public function relativeUrlWithoutBaseThrows(): void
     {
         $injection = new SeoInjection();
         $injection->setMetadata(new Metadata(alternates: new Alternates(canonical: '/products/1')));
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Relative URL "/products/1" requires a metadataBase to be configured');
-
-        $injection->getLinkTags();
+        try {
+            $injection->getLinkTags();
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Relative URL "/products/1" requires a metadataBase to be configured');
+        }
     }
 
-    #[Test]
     public function iconsAndManifestAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -318,23 +301,21 @@ final class SeoInjectionTest extends TestCase
 
         $combined = $this->renderLinks($injection);
 
-        $this->assertStringContainsString('rel="icon"', $combined);
-        $this->assertStringContainsString('href="/favicon.ico"', $combined);
-        $this->assertStringContainsString('rel="apple-touch-icon"', $combined);
-        $this->assertStringContainsString('rel="manifest"', $combined);
-        $this->assertStringContainsString('href="/site.webmanifest"', $combined);
+        Assert::string($combined)->contains('rel="icon"');
+        Assert::string($combined)->contains('href="/favicon.ico"');
+        Assert::string($combined)->contains('rel="apple-touch-icon"');
+        Assert::string($combined)->contains('rel="manifest"');
+        Assert::string($combined)->contains('href="/site.webmanifest"');
     }
 
-    #[Test]
     public function iconsComeFromDefaults(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(icons: new Icons(icon: '/favicon.ico')));
         $injection->setMetadata(new Metadata(title: 'Home'));
 
-        $this->assertStringContainsString('rel="icon"', $this->renderLinks($injection));
+        Assert::string($this->renderLinks($injection))->contains('rel="icon"');
     }
 
-    #[Test]
     public function jsonLdConcatenatesDefaultsAndPage(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(
@@ -344,22 +325,20 @@ final class SeoInjectionTest extends TestCase
 
         $html = $injection->getJsonLdHtml();
 
-        $this->assertStringContainsString('Organization', $html);
-        $this->assertStringContainsString('WebPage', $html);
+        Assert::string($html)->contains('Organization');
+        Assert::string($html)->contains('WebPage');
     }
 
-    #[Test]
     public function clearResetsState(): void
     {
         $injection = new SeoInjection();
         $injection->setMetadata(new Metadata(title: 'Home', description: 'Desc'));
         $injection->clear();
 
-        $this->assertSame('', $injection->getTitle());
-        $this->assertSame([], $injection->getMetaTags());
+        Assert::same($injection->getTitle(), '');
+        Assert::same($injection->getMetaTags(), []);
     }
 
-    #[Test]
     public function pageOverridesDefaultsForScalarMetaFields(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(
@@ -382,16 +361,15 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="description" content="Page desc">', $meta);
-        $this->assertContains('<meta name="application-name" content="PApp">', $meta);
-        $this->assertContains('<meta name="generator" content="PGen">', $meta);
-        $this->assertContains('<meta name="theme-color" content="#ffffff">', $meta);
-        $this->assertContains('<meta name="color-scheme" content="dark">', $meta);
-        $this->assertContains('<meta name="robots" content="index, follow">', $meta);
-        $this->assertContains('<meta name="google-site-verification" content="PG">', $meta);
+        Assert::contains($meta, '<meta name="description" content="Page desc">');
+        Assert::contains($meta, '<meta name="application-name" content="PApp">');
+        Assert::contains($meta, '<meta name="generator" content="PGen">');
+        Assert::contains($meta, '<meta name="theme-color" content="#ffffff">');
+        Assert::contains($meta, '<meta name="color-scheme" content="dark">');
+        Assert::contains($meta, '<meta name="robots" content="index, follow">');
+        Assert::contains($meta, '<meta name="google-site-verification" content="PG">');
     }
 
-    #[Test]
     public function scalarMetaFieldsFallBackToDefaults(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(
@@ -405,14 +383,13 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="generator" content="DGen">', $meta);
-        $this->assertContains('<meta name="theme-color" content="#000000">', $meta);
-        $this->assertContains('<meta name="color-scheme" content="light">', $meta);
-        $this->assertContains('<meta name="robots" content="noindex">', $meta);
-        $this->assertContains('<meta name="google-site-verification" content="DG">', $meta);
+        Assert::contains($meta, '<meta name="generator" content="DGen">');
+        Assert::contains($meta, '<meta name="theme-color" content="#000000">');
+        Assert::contains($meta, '<meta name="color-scheme" content="light">');
+        Assert::contains($meta, '<meta name="robots" content="noindex">');
+        Assert::contains($meta, '<meta name="google-site-verification" content="DG">');
     }
 
-    #[Test]
     public function openGraphPageOverridesDefaultsFieldByField(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(openGraph: new OpenGraph(
@@ -436,16 +413,15 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="PT">', $meta);
-        $this->assertContains('<meta property="og:description" content="PD">', $meta);
-        $this->assertContains('<meta property="og:type" content="article">', $meta);
-        $this->assertContains('<meta property="og:url" content="https://p.com/p">', $meta);
-        $this->assertContains('<meta property="og:site_name" content="PS">', $meta);
-        $this->assertContains('<meta property="og:locale" content="en_US">', $meta);
-        $this->assertContains('<meta property="og:image" content="https://p.com/pi.jpg">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="PT">');
+        Assert::contains($meta, '<meta property="og:description" content="PD">');
+        Assert::contains($meta, '<meta property="og:type" content="article">');
+        Assert::contains($meta, '<meta property="og:url" content="https://p.com/p">');
+        Assert::contains($meta, '<meta property="og:site_name" content="PS">');
+        Assert::contains($meta, '<meta property="og:locale" content="en_US">');
+        Assert::contains($meta, '<meta property="og:image" content="https://p.com/pi.jpg">');
     }
 
-    #[Test]
     public function openGraphInheritsFieldsFromDefaultsWhenPageOmitsThem(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(openGraph: new OpenGraph(
@@ -461,16 +437,15 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="DT">', $meta);
-        $this->assertContains('<meta property="og:description" content="DD">', $meta);
-        $this->assertContains('<meta property="og:type" content="profile">', $meta);
-        $this->assertContains('<meta property="og:url" content="https://d.com/d">', $meta);
-        $this->assertContains('<meta property="og:site_name" content="DS">', $meta);
-        $this->assertContains('<meta property="og:locale" content="de_DE">', $meta);
-        $this->assertContains('<meta property="og:image" content="https://d.com/di.jpg">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="DT">');
+        Assert::contains($meta, '<meta property="og:description" content="DD">');
+        Assert::contains($meta, '<meta property="og:type" content="profile">');
+        Assert::contains($meta, '<meta property="og:url" content="https://d.com/d">');
+        Assert::contains($meta, '<meta property="og:site_name" content="DS">');
+        Assert::contains($meta, '<meta property="og:locale" content="de_DE">');
+        Assert::contains($meta, '<meta property="og:image" content="https://d.com/di.jpg">');
     }
 
-    #[Test]
     public function openGraphComesFromDefaultsWhenPageHasNoOpenGraph(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(openGraph: new OpenGraph(
@@ -482,12 +457,11 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:title" content="DT">', $meta);
-        $this->assertContains('<meta property="og:site_name" content="DS">', $meta);
-        $this->assertContains('<meta property="og:image" content="https://d.com/di.jpg">', $meta);
+        Assert::contains($meta, '<meta property="og:title" content="DT">');
+        Assert::contains($meta, '<meta property="og:site_name" content="DS">');
+        Assert::contains($meta, '<meta property="og:image" content="https://d.com/di.jpg">');
     }
 
-    #[Test]
     public function openGraphWorksWithEmptyPageObjectAndNoDefaults(): void
     {
         $injection = new SeoInjection();
@@ -495,10 +469,9 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta property="og:type" content="website">', $meta);
+        Assert::contains($meta, '<meta property="og:type" content="website">');
     }
 
-    #[Test]
     public function openGraphDescriptionPrefersOwnValueOverMetadataDescription(): void
     {
         $injection = new SeoInjection();
@@ -509,11 +482,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="description" content="Page desc">', $meta);
-        $this->assertContains('<meta property="og:description" content="OG desc">', $meta);
+        Assert::contains($meta, '<meta name="description" content="Page desc">');
+        Assert::contains($meta, '<meta property="og:description" content="OG desc">');
     }
 
-    #[Test]
     public function twitterPageOverridesDefaultsFieldByField(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(twitter: new TwitterCard(
@@ -538,16 +510,15 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="description" content="Page desc">', $meta);
-        $this->assertContains('<meta name="twitter:card" content="summary_large_image">', $meta);
-        $this->assertContains('<meta name="twitter:site" content="@psite">', $meta);
-        $this->assertContains('<meta name="twitter:creator" content="@pcreator">', $meta);
-        $this->assertContains('<meta name="twitter:title" content="PT">', $meta);
-        $this->assertContains('<meta name="twitter:description" content="PD">', $meta);
-        $this->assertContains('<meta name="twitter:image" content="https://p.com/pi.jpg">', $meta);
+        Assert::contains($meta, '<meta name="description" content="Page desc">');
+        Assert::contains($meta, '<meta name="twitter:card" content="summary_large_image">');
+        Assert::contains($meta, '<meta name="twitter:site" content="@psite">');
+        Assert::contains($meta, '<meta name="twitter:creator" content="@pcreator">');
+        Assert::contains($meta, '<meta name="twitter:title" content="PT">');
+        Assert::contains($meta, '<meta name="twitter:description" content="PD">');
+        Assert::contains($meta, '<meta name="twitter:image" content="https://p.com/pi.jpg">');
     }
 
-    #[Test]
     public function twitterInheritsFromDefaultsWhenPageOmitsFields(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(twitter: new TwitterCard(
@@ -560,13 +531,12 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:card" content="summary">', $meta);
-        $this->assertContains('<meta name="twitter:site" content="@dsite">', $meta);
-        $this->assertContains('<meta name="twitter:creator" content="@dcreator">', $meta);
-        $this->assertContains('<meta name="twitter:image" content="https://d.com/di.jpg">', $meta);
+        Assert::contains($meta, '<meta name="twitter:card" content="summary">');
+        Assert::contains($meta, '<meta name="twitter:site" content="@dsite">');
+        Assert::contains($meta, '<meta name="twitter:creator" content="@dcreator">');
+        Assert::contains($meta, '<meta name="twitter:image" content="https://d.com/di.jpg">');
     }
 
-    #[Test]
     public function twitterComesFromDefaultsWhenPageHasNoTwitter(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(twitter: new TwitterCard(card: 'summary', site: '@dsite')));
@@ -574,11 +544,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:card" content="summary">', $meta);
-        $this->assertContains('<meta name="twitter:site" content="@dsite">', $meta);
+        Assert::contains($meta, '<meta name="twitter:card" content="summary">');
+        Assert::contains($meta, '<meta name="twitter:site" content="@dsite">');
     }
 
-    #[Test]
     public function twitterWorksWithEmptyPageObjectAndNoDefaults(): void
     {
         $injection = new SeoInjection();
@@ -586,10 +555,9 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:card" content="summary_large_image">', $meta);
+        Assert::contains($meta, '<meta name="twitter:card" content="summary_large_image">');
     }
 
-    #[Test]
     public function twitterTitleAndDescriptionPreferOwnValuesOverOpenGraph(): void
     {
         $injection = new SeoInjection();
@@ -600,11 +568,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:title" content="TW title">', $meta);
-        $this->assertContains('<meta name="twitter:description" content="TW desc">', $meta);
+        Assert::contains($meta, '<meta name="twitter:title" content="TW title">');
+        Assert::contains($meta, '<meta name="twitter:description" content="TW desc">');
     }
 
-    #[Test]
     public function twitterUsesOwnImagesInsteadOfOpenGraphImages(): void
     {
         $injection = new SeoInjection();
@@ -615,11 +582,10 @@ final class SeoInjectionTest extends TestCase
 
         $meta = $this->renderMeta($injection);
 
-        $this->assertContains('<meta name="twitter:image" content="https://tw.com/tw.jpg">', $meta);
-        $this->assertNotContains('<meta name="twitter:image" content="https://og.com/og.jpg">', $meta);
+        Assert::contains($meta, '<meta name="twitter:image" content="https://tw.com/tw.jpg">');
+        Assert::false(in_array('<meta name="twitter:image" content="https://og.com/og.jpg">', $meta, true));
     }
 
-    #[Test]
     public function iconsPageOverridesDefaults(): void
     {
         $injection = new SeoInjection(new MetadataDefaults(icons: new Icons(icon: '/default.ico')));
@@ -627,11 +593,10 @@ final class SeoInjectionTest extends TestCase
 
         $combined = $this->renderLinks($injection);
 
-        $this->assertStringContainsString('href="/page.ico"', $combined);
-        $this->assertStringNotContainsString('href="/default.ico"', $combined);
+        Assert::string($combined)->contains('href="/page.ico"');
+        Assert::string($combined)->notContains('href="/default.ico"');
     }
 
-    #[Test]
     public function iconTypeAndSizesAttributesAreRendered(): void
     {
         $injection = new SeoInjection();
@@ -641,8 +606,8 @@ final class SeoInjectionTest extends TestCase
 
         $combined = $this->renderLinks($injection);
 
-        $this->assertStringContainsString('type="image/png"', $combined);
-        $this->assertStringContainsString('sizes="32x32"', $combined);
+        Assert::string($combined)->contains('type="image/png"');
+        Assert::string($combined)->contains('sizes="32x32"');
     }
 
     /**

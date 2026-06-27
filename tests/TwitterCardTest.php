@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\TwitterCard;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(TwitterCard::class)]
-final class TwitterCardTest extends TestCase
+#[Test]
+#[Covers(TwitterCard::class)]
+final class TwitterCardTest
 {
-    #[Test]
     public function gettersReturnValues(): void
     {
         $card = new TwitterCard(
@@ -26,43 +26,43 @@ final class TwitterCardTest extends TestCase
             images: ['/a.jpg', '/b.jpg'],
         );
 
-        $this->assertSame('summary', $card->getCard());
-        $this->assertSame('@site', $card->getSite());
-        $this->assertSame('@creator', $card->getCreator());
-        $this->assertSame('T', $card->getTitle());
-        $this->assertSame('D', $card->getDescription());
-        $this->assertSame(['/a.jpg', '/b.jpg'], $card->getImages());
+        Assert::same($card->getCard(), 'summary');
+        Assert::same($card->getSite(), '@site');
+        Assert::same($card->getCreator(), '@creator');
+        Assert::same($card->getTitle(), 'T');
+        Assert::same($card->getDescription(), 'D');
+        Assert::same($card->getImages(), ['/a.jpg', '/b.jpg']);
     }
 
-    #[Test]
     public function cardIsNullByDefaultSoItCanInherit(): void
     {
-        $this->assertNull((new TwitterCard())->getCard());
+        Assert::null((new TwitterCard())->getCard());
     }
 
-    #[Test]
     #[DataProvider('validCardProvider')]
     public function acceptsValidCards(string $card): void
     {
-        $this->assertSame($card, (new TwitterCard(card: $card))->getCard());
+        Assert::same((new TwitterCard(card: $card))->getCard(), $card);
     }
 
-    #[Test]
     public function throwsOnInvalidCard(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid Twitter card "carousel"');
-
-        new TwitterCard(card: 'carousel');
+        try {
+            new TwitterCard(card: 'carousel');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Invalid Twitter card "carousel"');
+        }
     }
 
-    #[Test]
     public function throwsOnEmptyImageUrl(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Twitter image URL must not be empty');
-
-        new TwitterCard(images: ['']);
+        try {
+            new TwitterCard(images: ['']);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Twitter image URL must not be empty');
+        }
     }
 
     /** @return iterable<string, array{string}> */

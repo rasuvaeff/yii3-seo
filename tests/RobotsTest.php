@@ -5,58 +5,57 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
-use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\TestCase;
 use Rasuvaeff\Yii3Seo\Robots;
+use Testo\Assert;
+use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
+use Testo\Test;
 
-#[CoversClass(Robots::class)]
-final class RobotsTest extends TestCase
+#[Test]
+#[Covers(Robots::class)]
+final class RobotsTest
 {
-    #[Test]
     public function factoriesProduceExpectedDirectives(): void
     {
-        $this->assertSame(['index', 'follow'], Robots::index()->getDirectives());
-        $this->assertSame(['noindex'], Robots::noindex()->getDirectives());
-        $this->assertSame(['nofollow'], Robots::nofollow()->getDirectives());
-        $this->assertSame(['noindex', 'nofollow'], Robots::none()->getDirectives());
-        $this->assertSame(['noarchive'], Robots::noarchive()->getDirectives());
+        Assert::same(Robots::index()->getDirectives(), ['index', 'follow']);
+        Assert::same(Robots::noindex()->getDirectives(), ['noindex']);
+        Assert::same(Robots::nofollow()->getDirectives(), ['nofollow']);
+        Assert::same(Robots::none()->getDirectives(), ['noindex', 'nofollow']);
+        Assert::same(Robots::noarchive()->getDirectives(), ['noarchive']);
     }
 
-    #[Test]
     public function customDirectivesAreAccepted(): void
     {
-        $this->assertSame(['noindex', 'nosnippet'], (new Robots(['noindex', 'nosnippet']))->getDirectives());
+        Assert::same((new Robots(['noindex', 'nosnippet']))->getDirectives(), ['noindex', 'nosnippet']);
     }
 
-    #[Test]
     public function throwsOnInvalidDirective(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid robots directive "spider"');
-
-        new Robots(['spider']);
+        try {
+            new Robots(['spider']);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Invalid robots directive "spider"');
+        }
     }
 
-    #[Test]
     #[DataProvider('validMaxDirectiveProvider')]
     public function acceptsValidMaxDirectives(string $directive): void
     {
-        $this->assertSame([$directive], (new Robots([$directive]))->getDirectives());
+        Assert::same((new Robots([$directive]))->getDirectives(), [$directive]);
     }
 
-    #[Test]
     #[DataProvider('anchoredJunkProvider')]
     public function rejectsDirectivesWithLeadingOrTrailingJunk(string $directive): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("Invalid robots directive \"{$directive}\"");
-
-        new Robots([$directive]);
+        try {
+            new Robots([$directive]);
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains("Invalid robots directive \"{$directive}\"");
+        }
     }
 
-    #[Test]
     public function withModifiersAppendGoogleDirectives(): void
     {
         $robots = Robots::index()
@@ -66,56 +65,55 @@ final class RobotsTest extends TestCase
             ->withMaxImagePreview('large')
             ->withMaxVideoPreview(30);
 
-        $this->assertSame(
-            ['index', 'follow', 'nosnippet', 'noimageindex', 'max-snippet:-1', 'max-image-preview:large', 'max-video-preview:30'],
+        Assert::same(
             $robots->getDirectives(),
+            ['index', 'follow', 'nosnippet', 'noimageindex', 'max-snippet:-1', 'max-image-preview:large', 'max-video-preview:30'],
         );
     }
 
-    #[Test]
     public function withModifiersDoNotMutateOriginal(): void
     {
         $base = Robots::index();
         $derived = $base->withMaxSnippet(10);
 
-        $this->assertSame(['index', 'follow'], $base->getDirectives());
-        $this->assertNotSame($base, $derived);
+        Assert::same($base->getDirectives(), ['index', 'follow']);
+        Assert::notSame($base, $derived);
     }
 
-    #[Test]
     public function withGoogleBotDoesNotMutateOriginal(): void
     {
         $base = Robots::index();
         $derived = $base->withGoogleBot('noindex');
 
-        $this->assertSame([], $base->getGoogleBotDirectives());
-        $this->assertSame(['index', 'follow'], $derived->getDirectives());
-        $this->assertSame(['noindex', 'max-snippet:50'], Robots::index()->withGoogleBot('noindex', 'max-snippet:50')->getGoogleBotDirectives());
-        $this->assertNotSame($base, $derived);
+        Assert::same($base->getGoogleBotDirectives(), []);
+        Assert::same($derived->getDirectives(), ['index', 'follow']);
+        Assert::same(Robots::index()->withGoogleBot('noindex', 'max-snippet:50')->getGoogleBotDirectives(), ['noindex', 'max-snippet:50']);
+        Assert::notSame($base, $derived);
     }
 
-    #[Test]
     public function googleBotIsEmptyByDefault(): void
     {
-        $this->assertSame([], Robots::noindex()->getGoogleBotDirectives());
+        Assert::same(Robots::noindex()->getGoogleBotDirectives(), []);
     }
 
-    #[Test]
     public function throwsOnInvalidImagePreview(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid max-image-preview "huge"');
-
-        Robots::index()->withMaxImagePreview('huge');
+        try {
+            Robots::index()->withMaxImagePreview('huge');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Invalid max-image-preview "huge"');
+        }
     }
 
-    #[Test]
     public function throwsOnInvalidGoogleBotDirective(): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid robots directive "spider"');
-
-        Robots::index()->withGoogleBot('spider');
+        try {
+            Robots::index()->withGoogleBot('spider');
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())->contains('Invalid robots directive "spider"');
+        }
     }
 
     /** @return iterable<string, array{string}> */
