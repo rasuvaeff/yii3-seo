@@ -9,6 +9,7 @@
 [![Psalm level](https://shepherd.dev/github/rasuvaeff/yii3-seo/level.svg)](https://shepherd.dev/github/rasuvaeff/yii3-seo)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-seo/php)](https://packagist.org/packages/rasuvaeff/yii3-seo)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-seo.svg)](LICENSE.md)
+[Русская версия](README.ru.md)
 
 Next.js-style typed SEO metadata for Yii3. Describe a page with one declarative
 `Metadata` object — title templates, OpenGraph, Twitter cards, hreflang,
