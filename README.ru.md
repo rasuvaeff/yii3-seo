@@ -1,4 +1,5 @@
-# Расуваефф/yii3-seo
+# rasuvaeff/yii3-seo
+
 [![Stable Version](https://img.shields.io/packagist/v/rasuvaeff/yii3-seo.svg)](https://packagist.org/packages/rasuvaeff/yii3-seo)
 [![Total Downloads](https://img.shields.io/packagist/dt/rasuvaeff/yii3-seo.svg)](https://packagist.org/packages/rasuvaeff/yii3-seo)
 [![Build](https://github.com/rasuvaeff/yii3-seo/actions/workflows/build.yml/badge.svg)](https://github.com/rasuvaeff/yii3-seo/actions/workflows/build.yml)
@@ -8,39 +9,50 @@
 [![Psalm level](https://shepherd.dev/github/rasuvaeff/yii3-seo/level.svg)](https://shepherd.dev/github/rasuvaeff/yii3-seo)
 [![PHP](https://img.shields.io/packagist/dependency-v/rasuvaeff/yii3-seo/php)](https://packagist.org/packages/rasuvaeff/yii3-seo)
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-seo.svg)](LICENSE.md)
-Типизированные SEO-метаданные в стиле Next.js для Yii3. Опишите страницу с одним декларативным объектом
- `Metadata` — шаблонами заголовков, OpenGraph, карточками Twitter, hreflang, каноническим URL-адресом
-, директивами роботов, значками, проверкой и JSON-LD — и единственным экземпляром
- MetadataDefaults`, предоставляющим значения для всего сайта. Теги попадают в
- `<head>` автоматически через `WebViewRenderer`.
+[English version](README.md)
 
- > Используете помощника по программированию с искусственным интеллектом? [llms.txt](llms.txt) содержит компактную ссылку на API, готовую для вставки в контекст. @@ЛИНИЯ@@
+Типизированные SEO-метаданные в стиле Next.js для Yii3. Опишите страницу одним
+декларативным объектом `Metadata` — шаблоны title, OpenGraph, Twitter cards,
+hreflang, canonical URL, robots-директивы, иконки, verification и JSON-LD — а
+единственный инстанс `MetadataDefaults` предоставит значения для всего сайта.
+Теги попадают в `<head>` автоматически через `WebViewRenderer`.
+
+> Используете AI-ассистента? В [llms.txt](llms.txt) — компактный API-справочник,
+> готовый к вставке в контекст.
+
 ## Требования
+
 - PHP 8.3+
- - `yiisoft/html` ^3.13
- - `yiisoft/yii-view-renderer` ^7.4
+- `yiisoft/html` ^3.13
+- `yiisoft/yii-view-renderer` ^7.4
 
 ## Установка
+
 ```bash
 composer require rasuvaeff/yii3-seo
 ```
+
 ## Концепция
-Этот API отражает API метаданных Next.js:
 
- | Next.js | yii3-сео |
- |---|---|
- | `экспортировать константные метаданные = { ... }` (страница) | `новые метаданные(...)` отправляются по запросу |
- | макет `метаданные` (по умолчанию) | `MetadataDefaults` в параметрах DI |
- | `title.template` / `default` / `absolute` | `Title::template()` / `Title::absolute()` |
- | `alternates.canonical` / `языки` | `Альтернативы` |
- | `openGraph` / `twitter` | `OpenGraph` + `OgImage` / `TwitterCard` |
- | `база метаданных` | `MetadataDefaults(metadataBase: ...)` |
+API повторяет Next.js Metadata API:
 
- Значения по умолчанию объединяются с метаданными страницы: шаблон заголовка оборачивает заголовок страницы
-, OpenGraph/Twitter наследует неустановленные поля, а относительные URL-адреса разрешаются
- по `metadataBase`. @@ЛИНИЯ@@
+| Next.js | yii3-seo |
+|---|---|
+| `export const metadata = { ... }` (страница) | `new Metadata(...)`, диспатчится на запрос |
+| `metadata` layout-а (defaults) | `MetadataDefaults` в DI-params |
+| `title.template` / `default` / `absolute` | `Title::template()` / `Title::absolute()` |
+| `alternates.canonical` / `languages` | `Alternates` |
+| `openGraph` / `twitter` | `OpenGraph` + `OgImage` / `TwitterCard` |
+| `metadataBase` | `MetadataDefaults(metadataBase: ...)` |
+
+Defaults мержатся с метаданными страницы: шаблон title оборачивает title
+страницы, OpenGraph/Twitter наследуют незаданные поля, а относительные URL-ы
+резолвятся против `metadataBase`.
+
 ## Использование
-### 1. Настройки по умолчанию для всего сайта (параметры)
+
+### 1. Defaults для всего сайта (params)
+
 ```php
 // config/common/params.php
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
@@ -59,7 +71,9 @@ return [
     ],
 ];
 ```
-### 2. Зарегистрируйте SeoInjection в конфигурации представления DI.
+
+### 2. Зарегистрируйте `SeoInjection` в DI-конфиге view
+
 ```php
 // config/common/di.php
 use Rasuvaeff\Yii3Seo\SeoInjection;
@@ -77,7 +91,9 @@ return [
     ],
 ];
 ```
-### 3. Подключите обработчик событий
+
+### 3. Подключите event handler
+
 ```php
 // config/common/events.php
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
@@ -87,7 +103,9 @@ return [
     SeoMetadataEvent::class => [[SetSeoMetadataEventHandler::class, '__invoke']],
 ];
 ```
-### 4. Отправьте SeoMetadataEvent из вашего действия.
+
+### 4. Диспатчьте `SeoMetadataEvent` из action-а
+
 ```php
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Rasuvaeff\Yii3Seo\Alternates;
@@ -128,59 +146,74 @@ final readonly class ProductAction
     }
 }
 ```
-`og:title`/`og:description` возвращается к заголовку/описанию страницы, а
- `twitter:*` возвращается к OpenGraph — повторять их не нужно. @@ЛИНИЯ@@
-### 5. Заголовок и JSON-LD в макете
-`<title>` и `<script type="application/ld+json">` не поддерживаются интерфейсами внедрения
-. Вставьте SeoInjection в свой макет и выполните рендеринг вручную:
+
+`og:title`/`og:description` фолбэчатся на title/description страницы, а
+`twitter:*` — на OpenGraph: дублировать их не нужно.
+
+### 5. Title и JSON-LD в layout-е
+
+`<title>` и `<script type="application/ld+json">` не покрыты injection
+интерфейсами. Инжектируйте `SeoInjection` в layout и рендерите вручную:
 
 ```php
 <!-- layout.php -->
 <title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
 <?= $seoInjection->getJsonLdHtml() ?>
 ```
-## Публичный API
-### `Метаданные`
-Неизменяемый декларативный объект (все поля необязательны). Заголовок `string`
- нормализуется до `Title::of()`.
 
- | Поле | Тип | Рендеринг |
- |---|---|---|
- | `титул` | `строка\|Название` | `<title>` (шаблон применен) |
- | `описание` | `строка` | `<meta name="description">` |
- | `ключевые слова` | `список<строка>` | `<meta name="keywords">` |
- | `авторы` | `список<Автор>` | `<meta name="author">` + `<link rel="author">` |
- | `имя приложения`, `генератор`, `создатель`, `издатель` | `строка` | соответствие `<мета-имя>` |
- | `themeColor`, `colorScheme` | `строка` | `тема-цвет`, `цветовая схема` |
- | `роботы` | `Роботы` | `<meta name="robots">` / `googlebot` |
- | `заместители` | `Альтернативы` | ссылки канонические + hreflang |
- | `openGraph` | `ОпенГраф` | `ог:*` |
- | `твиттер` | `TwitterCard` | `твиттер:*` |
- | `значки` | `Иконки` | `<link rel="icon">` и т. д. |
- | `манифест` | `строка` | `<link rel="manifest">` |
- | `проверка` | `Верификация` | проверка `<meta>` |
- | `jsonLd` | `список<JsonLd>` | `<script type="application/ld+json">` |
- | `другое` | `list<MetaTag>` | пользовательский `<meta>` | @@ЛИНИЯ@@
-### `Метаданные по умолчанию`
-Значения по умолчанию для всего сайта: `metadataBase`, `title` (шаблон/по умолчанию),
- `applicationName`, `generator`, `themeColor`, `colorScheme`, `robots`,
- `openGraph`, `twitter`, `icons`, `verification`, `jsonLd`, `other`. Укажите через
- параметр `rasuvaeff/yii3-seo` → `defaults`. @@ЛИНИЯ@@
-### `Название`
-| Фабрика | Использование |
- |---|---|
- | `Title::of('Home')` | заголовок страницы, применен шаблон |
- | `Title::absolute('Home')` | заголовок страницы, шаблон пропущен |
- | `Title::template('%s | Acme', по умолчанию: 'Acme')` | по умолчанию: шаблон + резервный вариант | @@ЛИНИЯ@@
-### `Альтернативы`
+## Публичный API
+
+### `Metadata`
+
+Иммутабельный декларативный объект (все поля опциональны). Title типа `string`
+нормализуется в `Title::of()`.
+
+| Поле | Тип | Рендерится в |
+|---|---|---|
+| `title` | `string\|Title` | `<title>` (с применением шаблона) |
+| `description` | `string` | `<meta name="description">` |
+| `keywords` | `list<string>` | `<meta name="keywords">` |
+| `authors` | `list<Author>` | `<meta name="author">` + `<link rel="author">` |
+| `applicationName`, `generator`, `creator`, `publisher` | `string` | соответствующие `<meta name>` |
+| `themeColor`, `colorScheme` | `string` | `theme-color`, `color-scheme` |
+| `robots` | `Robots` | `<meta name="robots">` / `googlebot` |
+| `alternates` | `Alternates` | canonical + hreflang ссылки |
+| `openGraph` | `OpenGraph` | `og:*` |
+| `twitter` | `TwitterCard` | `twitter:*` |
+| `icons` | `Icons` | `<link rel="icon">` и т.д. |
+| `manifest` | `string` | `<link rel="manifest">` |
+| `verification` | `Verification` | verification `<meta>` |
+| `jsonLd` | `list<JsonLd>` | `<script type="application/ld+json">` |
+| `other` | `list<MetaTag>` | кастомные `<meta>` |
+
+### `MetadataDefaults`
+
+Defaults для всего сайта: `metadataBase`, `title` (шаблон/default),
+`applicationName`, `generator`, `themeColor`, `colorScheme`, `robots`,
+`openGraph`, `twitter`, `icons`, `verification`, `jsonLd`, `other`. Задаются
+через параметр `rasuvaeff/yii3-seo` → `defaults`.
+
+### `Title`
+
+| Фабрика | Назначение |
+|---|---|
+| `Title::of('Home')` | title страницы, шаблон применяется |
+| `Title::absolute('Home')` | title страницы, шаблон обходится |
+| `Title::template('%s | Acme', default: 'Acme')` | defaults: шаблон + фолбэк |
+
+### `Alternates`
+
 ```php
 new Alternates(
     canonical: '/page',
     languages: ['en' => '/en', 'en-US' => '/us', 'x-default' => '/'],
 )
 ```
-Локали соответствуют `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`. @@ЛИНИЯ@@
+
+Локали матчатся по `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`.
+
 ### `OpenGraph` + `OgImage`
+
 ```php
 new OpenGraph(
     title: null,            // falls back to Metadata title
@@ -192,7 +225,9 @@ new OpenGraph(
     images: [new OgImage(url: '/og.jpg', width: 1200, height: 630, alt: 'Alt', type: 'image/jpeg')],
 )
 ```
+
 ### `TwitterCard`
+
 ```php
 new TwitterCard(
     card: null,                     // summary | summary_large_image | app | player; inherits defaults, renders "summary_large_image" if unset everywhere
@@ -203,16 +238,20 @@ new TwitterCard(
     images: [],                     // falls back to OpenGraph images
 )
 ```
-### `Роботы`
-| Фабрика/метод | Директива |
- |---|---|
- | `Роботы::index()` | `индекс, следовать` |
- | `Robots::noindex()` / `nofollow()` / `none()` / `noarchive()` | соответствующие директивы |
- | `новые роботы(['noindex', 'nosnippet'])` | индивидуальная комбинация |
- | `->withNoSnippet()` / `->withNoImageIndex()` | добавить директиву |
- | `->withMaxSnippet(-1)` / `->withMaxImagePreview('large')` / `->withMaxVideoPreview(30)` | Google `макс-*` |
- | `->withGoogleBot('noindex', ...)` | отдельный `<meta name="googlebot">` | @@ЛИНИЯ@@
-### `Иконки` / `Иконка`, `Верификация`, `Автор`
+
+### `Robots`
+
+| Фабрика / метод | Директива |
+|---|---|
+| `Robots::index()` | `index, follow` |
+| `Robots::noindex()` / `nofollow()` / `none()` / `noarchive()` | соответствующие директивы |
+| `new Robots(['noindex', 'nosnippet'])` | произвольная комбинация |
+| `->withNoSnippet()` / `->withNoImageIndex()` | добавить директиву |
+| `->withMaxSnippet(-1)` / `->withMaxImagePreview('large')` / `->withMaxVideoPreview(30)` | Google `max-*` |
+| `->withGoogleBot('noindex', ...)` | отдельный `<meta name="googlebot">` |
+
+### `Icons` / `Icon`, `Verification`, `Author`
+
 ```php
 new Icons(icon: '/favicon.ico', shortcut: '/favicon.ico', apple: '/apple.png', other: [
     new Icon(rel: 'mask-icon', url: '/safari.svg'),
@@ -222,47 +261,65 @@ new Verification(google: 'g-token', yandex: 'y-token', bing: 'b-token', other: [
 
 new Author(name: 'Alice', url: 'https://example.com/alice');
 ```
-### `Метатег`
+
+### `MetaTag`
+
 | Фабрика | Атрибут |
- |---|---|
- | `MetaTag::name(имя, содержимое)` | `name="..."` |
- | `MetaTag::property(свойство, содержимое)` | `property="..."` |
- | `MetaTag::httpEquiv(httpEquiv, content)` | `http-equiv="..."` | @@ЛИНИЯ@@
+|---|---|
+| `MetaTag::name(name, content)` | `name="..."` |
+| `MetaTag::property(property, content)` | `property="..."` |
+| `MetaTag::httpEquiv(httpEquiv, content)` | `http-equiv="..."` |
+
 ### `JsonLd`
+
 ```php
 JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage', 'name' => 'Home'])
 ```
-Отрисовывается как `<script type="application/ld+json">` с `JSON_HEX_TAG` для предотвращения внедрения
- `</script>`. @@ЛИНИЯ@@
-### `SeoInjection`
-Синглтон зарегистрирован в DI. Реализует `MetaTagsInjectionInterface` +
- `LinkTagsInjectionInterface`. В конфигурации DI пакета также регистрируется перехватчик `reset` службы
-, поэтому устаревшие метаданные каждого запроса очищаются между запросами в повторно используемых средах выполнения
-.
 
- | Метод | Описание |
- |---|---|
- | `setMetadata(Метаданные)` | Установить метаданные для текущего запроса |
- | `очистить()` | Сброс (полезно при тестировании) |
- | `getTitle(): строка` | Разрешенный заголовок для `<title>` |
- | `getMetaTags(): list<Meta>` | Вызывается `WebViewRenderer` |
- | `getLinkTags(): array<Link>` | Вызывается `WebViewRenderer` |
- | `getJsonLdHtml(): строка` | Обработанные блоки JSON-LD `<script>` | @@ЛИНИЯ@@
+Рендерится как `<script type="application/ld+json">` с `JSON_HEX_TAG` для защиты
+от инъекции `</script>`.
+
+### `SeoInjection`
+
+Singleton, регистрируемый в DI. Реализует `MetaTagsInjectionInterface` +
+`LinkTagsInjectionInterface`. DI-конфиг пакета также регистрирует сервисный
+хук `reset`, поэтому устаревшие метаданные per-request очищаются между
+запросами в переиспользуемых runtime-ах.
+
+| Метод | Описание |
+|---|---|
+| `setMetadata(Metadata)` | Установить метаданные для текущего запроса |
+| `clear()` | Сброс (полезно в тестах) |
+| `getTitle(): string` | Резолвленный title для `<title>` |
+| `getMetaTags(): list<Meta>` | Вызывается `WebViewRenderer`-ом |
+| `getLinkTags(): array<Link>` | Вызывается `WebViewRenderer`-ом |
+| `getJsonLdHtml(): string` | HTML JSON-LD `<script>`-блоков |
+
 ## Безопасность
-- URL-адреса, ориентированные на сканер (canonical, hreflang, og:image, og:url, twitter:image), разрешаются с помощью MetadataBase; абсолютные URL-адреса проверяются с помощью `FILTER_VALIDATE_URL`. Относительный URL-адрес без базы вызывает исключение InvalidArgumentException.
- — экранирование HTML обрабатывается `Yiisoft\Html` — без конкатенации необработанных строк.
- — JSON-LD использует JSON_HEX_TAG для предотвращения внедрения `</script>`. @@ЛИНИЯ@@
+
+- URL-ы для краулеров (canonical, hreflang, `og:image`, `og:url`,
+  `twitter:image`) резолвятся против `metadataBase`; абсолютные URL-ы
+  валидируются через `FILTER_VALIDATE_URL`. Относительный URL без базы бросает
+  `InvalidArgumentException`.
+- HTML-экранирование выполняется `Yiisoft\Html` — без конкатенации сырых строк.
+- JSON-LD использует `JSON_HEX_TAG` для защиты от инъекции `</script>`.
+
 ## Примеры
-См. [`examples/`](examples/) для работоспособных скриптов и эскиз интеграции Yii3:
- [`examples/yii3-app.php`](examples/yii3-app.php). @@ЛИНИЯ@@
+
+См. [`examples/`](examples/) — запускаемые скрипты и эскиз Yii3-интеграции:
+[`examples/yii3-app.php`](examples/yii3-app.php).
+
 ## Разработка
+
 ```bash
 make install    # composer install
-make build      # full gate: validate + normalize + require-checker + cs + psalm + test
-make cs-fix     # fix code style
-make test       # run testo
-make test-coverage  # run testo with pcov coverage
-make mutation       # run infection with pcov coverage
+make build      # полный gate: validate + normalize + require-checker + cs + psalm + test
+make cs-fix     # починить стиль кода
+make test       # запустить testo
+make test-coverage  # запустить testo с pcov coverage
+make mutation       # запустить infection с pcov coverage
 ```
+
 ## Лицензия
-BSD-3-пункт. См. [LICENSE.md](LICENSE.md).
+
+BSD-3-Clause. См. [LICENSE.md](LICENSE.md).
