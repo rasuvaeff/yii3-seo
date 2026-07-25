@@ -71,5 +71,6 @@ final class AlternatesTest
         yield 'uppercase language' => ['EN'];
         yield 'wrong region case' => ['en-us'];
         yield 'unknown keyword' => ['default'];
+        yield 'trailing newline' => ["en-US\n"];
     }
 }

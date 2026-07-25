@@ -129,9 +129,12 @@ final class RobotsTest
     {
         yield 'snippet leading junk' => ['xmax-snippet:5'];
         yield 'snippet trailing junk' => ['max-snippet:5x'];
+        yield 'snippet trailing newline' => ["max-snippet:5\n"];
         yield 'image-preview leading junk' => ['xmax-image-preview:large'];
         yield 'image-preview trailing junk' => ['max-image-preview:largex'];
+        yield 'image-preview trailing newline' => ["max-image-preview:large\n"];
         yield 'video-preview leading junk' => ['xmax-video-preview:5'];
         yield 'video-preview trailing junk' => ['max-video-preview:5x'];
+        yield 'video-preview trailing newline' => ["max-video-preview:5\n"];
     }
 }

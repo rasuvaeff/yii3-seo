@@ -14,7 +14,7 @@ use InvalidArgumentException;
  */
 final readonly class Alternates
 {
-    private const string LOCALE_PATTERN = '/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/';
+    private const string LOCALE_PATTERN = '/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)\z/';
 
     /** @var array<string, string> */
     private array $languages;

@@ -130,15 +130,15 @@ final class Robots
             return;
         }
 
-        if (preg_match('/^max-snippet:-?\d+$/', $directive) === 1) {
+        if (preg_match('/^max-snippet:-?\d+\z/', $directive) === 1) {
             return;
         }
 
-        if (preg_match('/^max-image-preview:(?:none|standard|large)$/', $directive) === 1) {
+        if (preg_match('/^max-image-preview:(?:none|standard|large)\z/', $directive) === 1) {
             return;
         }
 
-        if (preg_match('/^max-video-preview:-?\d+$/', $directive) === 1) {
+        if (preg_match('/^max-video-preview:-?\d+\z/', $directive) === 1) {
             return;
         }
 

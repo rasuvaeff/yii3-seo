@@ -58,7 +58,7 @@ inside the `composer:2` container because the base image has no coverage driver.
 - `SeoInjection::getMetaTags()` returns `list<Yiisoft\Html\Tag\Meta>`; `getLinkTags()` returns `array<array-key, Yiisoft\Html\Tag\Link>` with `'canonical'`/`'manifest'` keys.
 - `<title>` and JSON-LD have no injection interface — expose via `getTitle()` and `getJsonLdHtml()`.
 - `Robots` whitelist: `all`, `index`, `noindex`, `follow`, `nofollow`, `none`, `noarchive`, `nosnippet`, `noimageindex`, `notranslate`, plus regex-validated `max-snippet:N`, `max-image-preview:none|standard|large`, `max-video-preview:N`.
-- `Alternates` locale regex: `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`; `languages` is a `locale => url` map.
+- `Alternates` locale regex: `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)\z/`; `languages` is a `locale => url` map.
 - `TwitterCard` card whitelist: `summary`, `summary_large_image`, `app`, `player`.
 - All `OpenGraph`/`TwitterCard` fields (including `type`/`card`) are nullable, so a page object inherits unset fields from the defaults field-by-field. The literal fallbacks `og:type` → `website` and `twitter:card` → `summary_large_image` are applied at render time in `SeoInjection`, not in the value objects.
 - `config.platform.php = 8.3.20` in composer.json — needed because `yiisoft/csrf` (transitive dep) has a PHP upper bound; the actual runtime is 8.5.
