@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3 — 2026-07-25
+
+- Reject trailing newlines in hreflang/robots directive validation: anchor
+  `Alternates::LOCALE_PATTERN` and the three `Robots` max-* directive regexes
+  with `\z` instead of `$` (PCRE `$` matches before a trailing `\n`, which let
+  `"<value>\n"` pass and reach the emitted HTML).
+
 ## 1.0.2 — 2026-06-30
 
 - Add `/benchmarks` and `/Makefile` to `.gitattributes` export-ignore.
