@@ -87,7 +87,9 @@ inside the `composer:2` container because the base image has no coverage driver.
   `%` is safe.
 - `openGraph`/`twitter` field-level inherit from defaults;
   `applicationName`/`generator`/`themeColor`/`colorScheme`/`robots`/`icons`/`verification`
-  are page-or-default; `jsonLd`/`other` concatenate; the rest are page-only.
+  are page-or-default; `jsonLd`/`other` concatenate; the rest are page-only —
+  except `alternates`, whose canonical is filled in from the request path when
+  `MetadataDefaults::selfCanonical` is configured and the page declares none.
 - Fallback cascade (on by default): `og:title`/`og:description` ← resolved title/description; `twitter:*` ← OpenGraph. Explicit values win. **This is our ergonomics, NOT Next.js behavior** (Next.js does not auto-derive `og:title`).
 - `UrlResolver` resolves crawler-facing URLs against `metadataBase`: absolute → validated `FILTER_VALIDATE_URL`; relative → joined to base; relative without base → `InvalidArgumentException`. Applied to canonical, hreflang, `og:url`, `og:image`, `twitter:image`. Icons/manifest URLs are emitted as-is.
 - URL VOs store raw strings (may be relative) — URL validation happens at render time in `UrlResolver`, NOT in the VO constructor. `MetadataDefaults::metadataBase` and `Author::url` are the exceptions: validated absolute in the constructor.

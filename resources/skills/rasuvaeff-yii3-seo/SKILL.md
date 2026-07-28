@@ -90,6 +90,7 @@ package's own ergonomics, **not** Next.js behavior.
 | `applicationName`, `generator`, `themeColor`, `colorScheme`, `robots`, `icons`, `verification` | Page value or default, whole value |
 | `jsonLd`, `other` | Defaults **and** page, concatenated |
 | `keywords`, `authors`, `creator`, `publisher`, `manifest` | Page only |
+| `alternates` | Page only, except that a configured `selfCanonical` fills in a missing canonical from the request path and keeps the page's `languages` |
 | `title` | `Title::of()` goes through the defaults template; `Title::absolute()` bypasses it |
 
 ## Choosing the entry point
