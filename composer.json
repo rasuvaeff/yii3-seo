@@ -72,6 +72,7 @@
     "extra": {
         "config-plugin": {
             "di": "di.php",
+            "events-web": "events-web.php",
             "params": "params.php"
         },
         "config-plugin-options": {

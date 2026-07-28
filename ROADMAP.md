@@ -50,10 +50,18 @@ adding isolated, uncommon metadata fields.
 - [x] Expose `SeoInjection` to layouts as the `$seo` layout parameter through
   Yii's `LayoutParametersInjectionInterface`.
 - [ ] Register title and JSON-LD through a Yii WebView integration so standard
-  layouts do not need package-specific object injection.
-- [ ] Investigate automatic event-handler registration through `yiisoft/config`;
+  layouts do not need package-specific object injection. **Blocked upstream:**
+  every `Yiisoft\View\Event\WebView\*` event extends `WebViewEvent`, which is
+  `@internal` to Yiisoft, so a listener cannot call `getView()` without a psalm
+  suppression. This needs a public extension point — a title/script injection
+  interface in `yiisoft/yii-view-renderer`, or a non-internal view event.
+- [x] Investigate automatic event-handler registration through `yiisoft/config`;
   retain direct `SeoInjection::setMetadata()` as the simplest alternative.
-- [ ] Replace the multi-step README introduction with a 60-second quickstart and
+  Shipped as an `events-web` group. Verified against real `yiisoft/config`: the
+  group only merges because `ApplicationRunner` applies `RecursiveMerge` to the
+  events groups — without it two packages listening to one event collide with
+  `Duplicate key`.
+- [x] Replace the multi-step README introduction with a 60-second quickstart and
   show the exact rendered head.
 
 ### Resolution and export
@@ -87,7 +95,7 @@ adding isolated, uncommon metadata fields.
 
 - [x] Run the existing full-head Integration suite in CI in addition to the
   standard `composer build` gate.
-- [ ] Add snapshots for a minimal page, article, product and multilingual page.
+- [x] Add snapshots for a minimal page, article, product and multilingual page.
 
 ## 1.2 - Crawlability
 

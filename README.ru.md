@@ -23,9 +23,11 @@ verification и JSON-LD — а единственный инстанс `Metadata
 
 ## Требования
 
-- PHP 8.3+
-- `yiisoft/html` ^3.13
+- PHP 8.3+, `ext-filter`, `ext-mbstring`
+- `yiisoft/html` ^3.13 || ^4.0
+- `yiisoft/view` ^12.0
 - `yiisoft/yii-view-renderer` ^7.4
+- `psr/http-message`, `psr/http-server-handler`, `psr/http-server-middleware` (middleware для self-canonical)
 
 ## Установка
 
@@ -55,14 +57,17 @@ Defaults мержатся с метаданными страницы: шабло
 нативные для Yii3 правила уменьшают дублирование; явные значения страницы
 всегда имеют приоритет.
 
-## Использование
+## Быстрый старт
 
-### 1. Defaults для всего сайта (params)
+Две правки конфигурации, один dispatch и две строки в layout-е.
+
+**1. Defaults для всего сайта** — `config/common/params.php`
 
 ```php
-// config/common/params.php
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 
@@ -73,15 +78,20 @@ return [
             title: Title::template('%s | My Store', default: 'My Store'),
             openGraph: new OpenGraph(siteName: 'My Store', locale: 'en_US'),
             twitter: new TwitterCard(card: 'summary_large_image', site: '@mystore'),
+            selfCanonical: SelfCanonical::enabled(),   // опционально
         ),
+    ],
+
+    'middlewares' => [
+        SelfCanonicalMiddleware::class,               // только для selfCanonical
+        // ... роутер и остальной стек
     ],
 ];
 ```
 
-### 2. Зарегистрируйте `SeoInjection` в DI-конфиге view
+**2. Добавьте injection в view renderer** — `config/common/di.php`
 
 ```php
-// config/common/di.php
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Yiisoft\Yii\View\Renderer\CsrfViewInjection;
 use Yiisoft\Yii\View\Renderer\WebViewRenderer;
@@ -98,23 +108,10 @@ return [
 ];
 ```
 
-### 3. Подключите event handler
-
-```php
-// config/common/events.php
-use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
-use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
-
-return [
-    SeoMetadataEvent::class => [[SetSeoMetadataEventHandler::class, '__invoke']],
-];
-```
-
-### 4. Диспатчьте `SeoMetadataEvent` из action-а
+**3. Опишите страницу** — в action-е
 
 ```php
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
@@ -133,14 +130,6 @@ final readonly class ProductAction
             metadata: new Metadata(
                 title: 'Awesome Product',                 // -> "Awesome Product | My Store"
                 description: 'Buy the awesome product.',
-                alternates: new Alternates(
-                    canonical: '/products/awesome',        // resolved against metadataBase
-                    languages: [
-                        'en'        => '/en/products/awesome',
-                        'ru'        => '/ru/products/awesome',
-                        'x-default' => '/products/awesome',
-                    ],
-                ),
                 openGraph: new OpenGraph(
                     type: 'product',
                     images: [new OgImage(url: '/og/awesome.jpg', width: 1200, height: 630, alt: 'Awesome')],
@@ -153,14 +142,51 @@ final readonly class ProductAction
 }
 ```
 
-`og:title`/`og:description` фолбэчатся на title/description страницы, а
-`twitter:*` — на OpenGraph: дублировать их не нужно.
+Это вся интеграция. Запрос `https://example.com/products/awesome?utm_source=mail`
+отрендерит:
 
-### 5. Title и JSON-LD в layout-е
+```html
+<title>Awesome Product | My Store</title>
+<meta name="description" content="Buy the awesome product.">
+<meta property="og:title" content="Awesome Product | My Store">
+<meta property="og:type" content="product">
+<meta property="og:description" content="Buy the awesome product.">
+<meta property="og:site_name" content="My Store">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://example.com/og/awesome.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Awesome">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@mystore">
+<meta name="twitter:title" content="Awesome Product | My Store">
+<meta name="twitter:description" content="Buy the awesome product.">
+<meta name="twitter:image" content="https://example.com/og/awesome.jpg">
+<link rel="canonical" href="https://example.com/products/awesome">
+```
 
-`<title>` и `<script type="application/ld+json">` не покрыты injection
-интерфейсами для meta/link. После регистрации `SeoInjection` в
-`WebViewRenderer` он автоматически доступен в layout-е как `$seo`:
+`og:title`/`og:description` взялись из title и description страницы,
+`twitter:*` — из OpenGraph, canonical — из пути запроса с выброшенным
+tracking-параметром, а layout-у осталось только вывести `<title>` и блок JSON-LD
+(шаг 4).
+
+### Что пакет подключает сам
+
+| Элемент | Механизм |
+|---|---|
+| Meta- и link-теги | `SeoInjection` через injection-интерфейсы `WebViewRenderer` (шаг 2) |
+| Обработчик `SeoMetadataEvent` | `config/events-web.php`, авторегистрация через `yiisoft/config` — в приложении ничего писать не нужно |
+| Параметр layout-а `$seo` | `LayoutParametersInjectionInterface`, объект в layout инжектить не нужно |
+| Сброс между запросами | `config/di.php` вызывает `SeoInjection::reset()`, поэтому ничего не утекает в RoadRunner и подобных рантаймах |
+
+`HttpApplicationRunner` читает группу `events-web` с `RecursiveMerge`, поэтому
+эти слушатели складываются со слушателями приложения и других пакетов на то же
+событие, а не конфликтуют.
+
+**4. Выведите title и JSON-LD** — в layout-е
+
+У `WebViewRenderer` есть injection-интерфейсы только для meta- и link-тегов,
+поэтому эти два элемента рендерятся из автоматически инжектируемого `$seo`:
 
 ```php
 <!-- layout.php -->

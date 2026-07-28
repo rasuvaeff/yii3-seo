@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add byte-exact `<head>` snapshots for a minimal page, an article, a product
+  and a multilingual page to the Integration suite.
+- Register the `SeoMetadataEvent` handler automatically: the package now ships an
+  `events-web` configuration group, so applications no longer wire
+  `SetSeoMetadataEventHandler` themselves.
+- Add `JsonLd::toJson()` for embedding a block in an existing `<script>` element.
 - Add an opt-in self-canonical strategy: `SelfCanonical` (site-wide policy on
   `MetadataDefaults`) plus `SelfCanonicalMiddleware`, which records the current
   request path. Pages that do not declare `Alternates::canonical` get a canonical

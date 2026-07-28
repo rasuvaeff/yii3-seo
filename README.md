@@ -21,9 +21,11 @@ in `<head>` automatically via `WebViewRenderer`.
 
 ## Requirements
 
-- PHP 8.3+
-- `yiisoft/html` ^3.13
+- PHP 8.3+, `ext-filter`, `ext-mbstring`
+- `yiisoft/html` ^3.13 || ^4.0
+- `yiisoft/view` ^12.0
 - `yiisoft/yii-view-renderer` ^7.4
+- `psr/http-message`, `psr/http-server-handler`, `psr/http-server-middleware` (self-canonical middleware)
 
 ## Installation
 
@@ -52,14 +54,17 @@ Unlike Next.js, nested OpenGraph/Twitter values are merged field by field and
 social title, description and image fallbacks are enabled by default. These
 Yii3-native rules reduce repetition while explicit page values always win.
 
-## Usage
+## Quickstart
 
-### 1. Site-wide defaults (params)
+Two configuration edits, one dispatch and two lines in the layout.
+
+**1. Site-wide defaults** — `config/common/params.php`
 
 ```php
-// config/common/params.php
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 
@@ -70,15 +75,20 @@ return [
             title: Title::template('%s | My Store', default: 'My Store'),
             openGraph: new OpenGraph(siteName: 'My Store', locale: 'en_US'),
             twitter: new TwitterCard(card: 'summary_large_image', site: '@mystore'),
+            selfCanonical: SelfCanonical::enabled(),   // optional
         ),
+    ],
+
+    'middlewares' => [
+        SelfCanonicalMiddleware::class,               // only for selfCanonical
+        // ... router and the rest of the stack
     ],
 ];
 ```
 
-### 2. Register `SeoInjection` in the view DI config
+**2. Add the injection to the view renderer** — `config/common/di.php`
 
 ```php
-// config/common/di.php
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Yiisoft\Yii\View\Renderer\CsrfViewInjection;
 use Yiisoft\Yii\View\Renderer\WebViewRenderer;
@@ -95,23 +105,10 @@ return [
 ];
 ```
 
-### 3. Wire the event handler
-
-```php
-// config/common/events.php
-use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
-use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
-
-return [
-    SeoMetadataEvent::class => [[SetSeoMetadataEventHandler::class, '__invoke']],
-];
-```
-
-### 4. Dispatch `SeoMetadataEvent` from your action
+**3. Describe the page** — in an action
 
 ```php
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
@@ -130,14 +127,6 @@ final readonly class ProductAction
             metadata: new Metadata(
                 title: 'Awesome Product',                 // -> "Awesome Product | My Store"
                 description: 'Buy the awesome product.',
-                alternates: new Alternates(
-                    canonical: '/products/awesome',        // resolved against metadataBase
-                    languages: [
-                        'en'        => '/en/products/awesome',
-                        'ru'        => '/ru/products/awesome',
-                        'x-default' => '/products/awesome',
-                    ],
-                ),
                 openGraph: new OpenGraph(
                     type: 'product',
                     images: [new OgImage(url: '/og/awesome.jpg', width: 1200, height: 630, alt: 'Awesome')],
@@ -150,14 +139,51 @@ final readonly class ProductAction
 }
 ```
 
-`og:title`/`og:description` fall back to the page title/description, and
-`twitter:*` falls back to OpenGraph — no need to repeat them.
+That is the whole integration. A request for
+`https://example.com/products/awesome?utm_source=mail` renders:
 
-### 5. Title and JSON-LD in layout
+```html
+<title>Awesome Product | My Store</title>
+<meta name="description" content="Buy the awesome product.">
+<meta property="og:title" content="Awesome Product | My Store">
+<meta property="og:type" content="product">
+<meta property="og:description" content="Buy the awesome product.">
+<meta property="og:site_name" content="My Store">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://example.com/og/awesome.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Awesome">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@mystore">
+<meta name="twitter:title" content="Awesome Product | My Store">
+<meta name="twitter:description" content="Buy the awesome product.">
+<meta name="twitter:image" content="https://example.com/og/awesome.jpg">
+<link rel="canonical" href="https://example.com/products/awesome">
+```
 
-`<title>` and `<script type="application/ld+json">` are not covered by the
-meta/link injection interfaces. Once `SeoInjection` is registered in
-`WebViewRenderer`, it is also available to the layout automatically as `$seo`:
+`og:title`/`og:description` fell back to the page title and description,
+`twitter:*` fell back to OpenGraph, the canonical URL came from the request path
+with the tracking parameter stripped, and the layout only had to print
+`<title>` and the JSON-LD block (step 4).
+
+### What the package wires for you
+
+| Element | Mechanism |
+|---|---|
+| Meta and link tags | `SeoInjection` through `WebViewRenderer` injection interfaces (step 2) |
+| `SeoMetadataEvent` handler | `config/events-web.php`, auto-registered through `yiisoft/config` — no `events-web.php` entry in the application |
+| `$seo` layout parameter | `LayoutParametersInjectionInterface`, so the layout needs no object injection |
+| Reset between requests | `config/di.php` wires `SeoInjection::reset()`, so nothing leaks in RoadRunner or similar runtimes |
+
+`HttpApplicationRunner` reads the `events-web` group with `RecursiveMerge`, so
+these listeners merge with the application's own and with other packages'
+listeners for the same event instead of colliding.
+
+**4. Print title and JSON-LD** — in the layout
+
+`WebViewRenderer` has injection interfaces for meta and link tags only, so these
+two elements are rendered from the automatically injected `$seo` parameter:
 
 ```php
 <!-- layout.php -->

@@ -50,7 +50,22 @@ inside the `composer:2` container because the base image has no coverage driver.
 
 ## Invariants & gotchas
 
-- Event flow: action dispatches `SeoMetadataEvent` → `SetSeoMetadataEventHandler::__invoke()` → `SeoInjection::setMetadata()` → `WebViewRenderer` reads tags.
+- Event flow: action dispatches `SeoMetadataEvent` → `SetSeoMetadataEventHandler::__invoke()`
+  → `SeoInjection::setMetadata()` → `WebViewRenderer` reads meta/link tags. The
+  listener ships in `config/events-web.php` and is registered automatically by
+  `yiisoft/config`, so applications do not wire it themselves.
+- **Do not build on `Yiisoft\View\Event\WebView\*`.** `WebViewEvent` — and with it
+  `getView()` — is `@internal` to Yiisoft, so a `PageBegin` listener that sets the
+  `<title>` or registers JSON-LD fails psalm (`InternalMethod`) and would need a
+  suppression. That is why `<title>` and JSON-LD still come from the `$seo` layout
+  parameter; it needs a public extension point upstream (`yiisoft/view` or a title
+  injection interface in `yiisoft/yii-view-renderer`).
+- **The `events-web` group only merges because the runner asks it to.**
+  `ApplicationRunner::createDefaultConfig()` applies `RecursiveMerge`/`ReverseMerge`
+  to the events groups (`HttpApplicationRunner` defaults the group to `events-web`),
+  so two packages listening to the same event stack up. Without that modifier
+  `yiisoft/config` throws `Duplicate key`. Verified against real `yiisoft/config`
+  with a fake vendor layout; re-verify the same way before adding another group.
 - `SeoInjection` is mutable (`final class`) — it holds the per-request inputs
   (`Metadata`, request path) plus readonly `MetadataDefaults`/`MetadataResolver`
   dependencies, and resolves **lazily and once**: `getResolvedMetadata()` caches,
