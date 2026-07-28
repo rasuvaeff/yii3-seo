@@ -37,9 +37,14 @@ final readonly class MetadataDefaults
         private ?Verification $verification = null,
         private array $jsonLd = [],
         private array $other = [],
+        private ?SelfCanonical $selfCanonical = null,
     ) {
         if ($metadataBase !== null && filter_var($metadataBase, FILTER_VALIDATE_URL) === false) {
             throw new InvalidArgumentException("Invalid metadataBase URL \"{$metadataBase}\"");
+        }
+
+        if ($selfCanonical instanceof \Rasuvaeff\Yii3Seo\SelfCanonical && $metadataBase === null) {
+            throw new InvalidArgumentException('Self-canonical URLs require a metadataBase to be configured');
         }
 
         $this->title = is_string($title) ? Title::of($title) : $title;
@@ -110,5 +115,10 @@ final readonly class MetadataDefaults
     public function getOther(): array
     {
         return $this->other;
+    }
+
+    public function getSelfCanonical(): ?SelfCanonical
+    {
+        return $this->selfCanonical;
     }
 }

@@ -17,6 +17,7 @@ use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
 use Rasuvaeff\Yii3Seo\ResolvedMetadata;
 use Rasuvaeff\Yii3Seo\Robots;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
@@ -356,6 +357,67 @@ final class SeoInjectionTest
 
         Assert::same($injection->getTitle(), '');
         Assert::same($injection->getMetaTags(), []);
+    }
+
+    public function resolutionIsCachedUntilTheStateChanges(): void
+    {
+        $injection = new SeoInjection();
+        $first = $injection->getResolvedMetadata();
+
+        Assert::same($injection->getResolvedMetadata(), $first);
+
+        $injection->setMetadata(new Metadata(title: 'Home'));
+        $afterMetadata = $injection->getResolvedMetadata();
+
+        Assert::notSame($afterMetadata, $first);
+        Assert::same($injection->getResolvedMetadata(), $afterMetadata);
+
+        $injection->setRequestPath('/home');
+
+        Assert::notSame($injection->getResolvedMetadata(), $afterMetadata);
+    }
+
+    public function renderedSelfCanonicalUsesTheRecordedRequestPath(): void
+    {
+        $injection = new SeoInjection($this->selfCanonicalDefaults());
+        $injection->setRequestPath('/products/1?page=2&utm_source=mail');
+
+        $links = $injection->getLinkTags();
+
+        Assert::array($links)->hasKeys('canonical');
+        Assert::string($links['canonical']->render())
+            ->contains('href="https://example.com/products/1?page=2"');
+    }
+
+    public function requestPathIsAppliedRegardlessOfWhenMetadataIsSet(): void
+    {
+        $injection = new SeoInjection($this->selfCanonicalDefaults());
+        $injection->setMetadata(new Metadata(title: 'Product'));
+        $injection->setRequestPath('/products/1');
+
+        Assert::same(
+            $injection->getResolvedMetadata()->getAlternates()?->getCanonical(),
+            '/products/1',
+        );
+    }
+
+    public function resetDropsTheRequestPathOfThePreviousRequest(): void
+    {
+        $injection = new SeoInjection($this->selfCanonicalDefaults());
+        $injection->setRequestPath('/products/1');
+        $injection->getResolvedMetadata();
+        $injection->reset();
+
+        Assert::null($injection->getResolvedMetadata()->getAlternates());
+        Assert::same($injection->getLinkTags(), []);
+    }
+
+    private function selfCanonicalDefaults(): MetadataDefaults
+    {
+        return new MetadataDefaults(
+            metadataBase: 'https://example.com',
+            selfCanonical: SelfCanonical::keepingQuery('page'),
+        );
     }
 
     public function pageOverridesDefaultsForScalarMetaFields(): void

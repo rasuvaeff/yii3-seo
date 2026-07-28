@@ -15,11 +15,13 @@ use Rasuvaeff\Yii3Seo\MetaTag;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
 use Rasuvaeff\Yii3Seo\Robots;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 use Rasuvaeff\Yii3Seo\Verification;
 use Testo\Assert;
 use Testo\Codecov\Covers;
+use Testo\Data\DataProvider;
 use Testo\Test;
 
 #[Test]
@@ -500,6 +502,149 @@ final class MetadataResolverTest
 
         Assert::instanceOf($openGraph, OpenGraph::class);
         Assert::same($openGraph->getImages(), [$defaultImage]);
+    }
+
+    #[DataProvider('selfCanonicalProvider')]
+    public function derivesTheCanonicalUrlFromTheRequestPath(
+        SelfCanonical $policy,
+        string $requestPath,
+        string $expected,
+    ): void {
+        $resolved = (new MetadataResolver())->resolve(
+            defaults: new MetadataDefaults(metadataBase: 'https://example.com', selfCanonical: $policy),
+            requestPath: $requestPath,
+        );
+
+        Assert::same($resolved->getAlternates()?->getCanonical(), $expected);
+    }
+
+    public static function selfCanonicalProvider(): iterable
+    {
+        yield 'query is dropped by default' => [
+            SelfCanonical::enabled(),
+            '/products/1?page=2',
+            '/products/1',
+        ];
+
+        yield 'allow-listed parameter survives' => [
+            SelfCanonical::keepingQuery('page'),
+            '/products?page=2&utm_source=mail',
+            '/products?page=2',
+        ];
+
+        yield 'allow-list order wins over request order' => [
+            SelfCanonical::keepingQuery('page', 'sort'),
+            '/products?sort=price&page=2',
+            '/products?page=2&sort=price',
+        ];
+
+        yield 'allow-listed parameter that is absent is skipped' => [
+            SelfCanonical::keepingQuery('page', 'sort'),
+            '/products?sort=price',
+            '/products?sort=price',
+        ];
+
+        yield 'query with no allow-listed parameter leaves a bare path' => [
+            SelfCanonical::keepingQuery('page'),
+            '/products?utm_source=mail',
+            '/products',
+        ];
+
+        yield 'only the first equals sign separates name from value' => [
+            SelfCanonical::keepingQuery('page'),
+            '/products?page=a=b',
+            '/products?page=a%3Db',
+        ];
+
+        yield 'percent-encoded values are decoded and re-encoded' => [
+            SelfCanonical::keepingQuery('q'),
+            '/search?q=blue%20shoes',
+            '/search?q=blue+shoes',
+        ];
+
+        yield 'parameter without a value stays empty' => [
+            SelfCanonical::keepingQuery('page'),
+            '/products?page',
+            '/products?page=',
+        ];
+
+        yield 'only the first question mark separates path from query' => [
+            SelfCanonical::keepingQuery('page', 'ref'),
+            '/products?page=2&ref=a?b',
+            '/products?page=2&ref=a%3Fb',
+        ];
+
+        yield 'array-valued parameters never enter the canonical URL' => [
+            SelfCanonical::keepingQuery('tag'),
+            '/products?tag[]=a&tag[]=b',
+            '/products',
+        ];
+
+        yield 'empty request path becomes the root path' => [
+            SelfCanonical::enabled(),
+            '',
+            '/',
+        ];
+
+        yield 'path without a query is used as is' => [
+            SelfCanonical::keepingQuery('page'),
+            '/products/1',
+            '/products/1',
+        ];
+    }
+
+    public function explicitCanonicalWinsOverTheSelfCanonicalPolicy(): void
+    {
+        $resolved = (new MetadataResolver())->resolve(
+            metadata: new Metadata(alternates: new Alternates(canonical: '/explicit')),
+            defaults: new MetadataDefaults(
+                metadataBase: 'https://example.com',
+                selfCanonical: SelfCanonical::enabled(),
+            ),
+            requestPath: '/products/1',
+        );
+
+        Assert::same($resolved->getAlternates()?->getCanonical(), '/explicit');
+    }
+
+    public function selfCanonicalKeepsConfiguredHreflangAlternates(): void
+    {
+        $resolved = (new MetadataResolver())->resolve(
+            metadata: new Metadata(alternates: new Alternates(languages: ['de-DE' => '/de/products/1'])),
+            defaults: new MetadataDefaults(
+                metadataBase: 'https://example.com',
+                selfCanonical: SelfCanonical::enabled(),
+            ),
+            requestPath: '/products/1',
+        );
+        $alternates = $resolved->getAlternates();
+
+        Assert::same($alternates?->getCanonical(), '/products/1');
+        Assert::same($alternates?->getLanguages(), ['de-DE' => '/de/products/1']);
+    }
+
+    public function withoutTheSelfCanonicalPolicyTheRequestPathIsIgnored(): void
+    {
+        $resolved = (new MetadataResolver())->resolve(
+            defaults: new MetadataDefaults(metadataBase: 'https://example.com'),
+            requestPath: '/products/1',
+        );
+
+        Assert::null($resolved->getAlternates());
+    }
+
+    public function withoutARequestPathTheSelfCanonicalPolicyDoesNothing(): void
+    {
+        $alternates = new Alternates(languages: ['de-DE' => '/de']);
+        $resolved = (new MetadataResolver())->resolve(
+            metadata: new Metadata(alternates: $alternates),
+            defaults: new MetadataDefaults(
+                metadataBase: 'https://example.com',
+                selfCanonical: SelfCanonical::enabled(),
+            ),
+        );
+
+        Assert::same($resolved->getAlternates(), $alternates);
     }
 
     public function absoluteTitleBypassesDefaultTemplate(): void

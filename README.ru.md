@@ -314,6 +314,49 @@ new Alternates(
 
 Локали матчатся по `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`.
 
+### `SelfCanonical` + `SelfCanonicalMiddleware`
+
+Опциональная стратегия: canonical URL для страниц, которые не задали его сами,
+выводится из `metadataBase` и текущего пути запроса.
+
+```php
+// config/common/params.php
+use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+
+new MetadataDefaults(
+    metadataBase: 'https://example.com',
+    selfCanonical: SelfCanonical::enabled(),                 // выбросить все query-параметры
+    // selfCanonical: SelfCanonical::keepingQuery('page'),   // оставить явный allow-list
+);
+```
+
+```php
+// config/common/params.php — стек middleware приложения
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
+
+'middlewares' => [
+    SelfCanonicalMiddleware::class,
+    // ... роутер и остальной стек
+],
+```
+
+Запрос `https://example.com/products/1?page=2&utm_source=mail` отрендерит
+`<link rel="canonical" href="https://example.com/products/1?page=2">`.
+
+| Правило | Поведение |
+|---|---|
+| Authority запроса | Игнорируется. Читаются только path и query, поэтому запрос на другой хост, порт или схему всё равно даёт URL настроенного сайта |
+| Query-параметры | По умолчанию выбрасываются. `SelfCanonical::keepingQuery(...)` оставляет явный allow-list |
+| Порядок параметров | Порядок allow-list, а не запроса: `?sort=a&page=1` и `?page=1&sort=a` дают одинаковый canonical |
+| Параметры-массивы | Никогда не попадают в canonical (`?tag[]=a` выбрасывается, даже если `tag` в allow-list) |
+| Явный `Alternates::canonical` | Всегда побеждает; заданные страницей hreflang `languages` сохраняются |
+| `metadataBase` | Обязателен — `MetadataDefaults` бросает исключение, если `selfCanonical` задан без него |
+| Без middleware | Путь запроса не записывается, и стратегия ничего не делает |
+
+`SelfCanonicalMiddleware` вызывает `SeoInjection::setRequestPath()`; порядок
+относительно установки метаданных страницы значения не имеет.
+
 ### `OpenGraph` + `OgImage`
 
 ```php

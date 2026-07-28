@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add an opt-in self-canonical strategy: `SelfCanonical` (site-wide policy on
+  `MetadataDefaults`) plus `SelfCanonicalMiddleware`, which records the current
+  request path. Pages that do not declare `Alternates::canonical` get a canonical
+  URL derived from `metadataBase` and the request path. The request authority is
+  never used, query parameters are dropped unless allow-listed, allow-listed
+  parameters are emitted in the configured order, and explicit canonical values
+  stay authoritative.
+- `SeoInjection` now resolves lazily and caches the result until `setMetadata()`,
+  `setRequestPath()` or `clear()`/`reset()` is called; `clear()` drops the request
+  path as well so nothing leaks between requests in a reusable runtime.
 - Add `ResolvedMetadata::toArray()`: a normalized array export of the resolved
   metadata for JSON APIs, SPA payloads, preview tooling and debugging. It
   resolves crawler-facing URLs against `metadataBase` exactly as rendering does,

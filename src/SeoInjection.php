@@ -19,26 +19,39 @@ use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
  */
 final class SeoInjection implements LayoutParametersInjectionInterface, MetaTagsInjectionInterface, LinkTagsInjectionInterface
 {
-    private ResolvedMetadata $resolvedMetadata;
+    private ?Metadata $metadata = null;
+
+    private ?string $requestPath = null;
+
+    private ?ResolvedMetadata $resolvedMetadata = null;
 
     public function __construct(
         private readonly MetadataDefaults $defaults = new MetadataDefaults(),
         private readonly MetadataResolver $metadataResolver = new MetadataResolver(),
-    ) {
-        $this->resolvedMetadata = $this->metadataResolver->resolve(defaults: $this->defaults);
-    }
+    ) {}
 
     public function setMetadata(Metadata $metadata): void
     {
-        $this->resolvedMetadata = $this->metadataResolver->resolve(
-            metadata: $metadata,
-            defaults: $this->defaults,
-        );
+        $this->metadata = $metadata;
+        $this->resolvedMetadata = null;
+    }
+
+    /**
+     * Records the current request path (with an optional query string) for the
+     * opt-in {@see SelfCanonical} policy. {@see SelfCanonicalMiddleware} calls
+     * this; the request authority is deliberately not recorded.
+     */
+    public function setRequestPath(?string $requestPath): void
+    {
+        $this->requestPath = $requestPath;
+        $this->resolvedMetadata = null;
     }
 
     public function clear(): void
     {
-        $this->resolvedMetadata = $this->metadataResolver->resolve(defaults: $this->defaults);
+        $this->metadata = null;
+        $this->requestPath = null;
+        $this->resolvedMetadata = null;
     }
 
     public function reset(): void
@@ -60,7 +73,11 @@ final class SeoInjection implements LayoutParametersInjectionInterface, MetaTags
 
     public function getResolvedMetadata(): ResolvedMetadata
     {
-        return $this->resolvedMetadata;
+        return $this->resolvedMetadata ??= $this->metadataResolver->resolve(
+            metadata: $this->metadata,
+            defaults: $this->defaults,
+            requestPath: $this->requestPath,
+        );
     }
 
     public function getJsonLdHtml(): string

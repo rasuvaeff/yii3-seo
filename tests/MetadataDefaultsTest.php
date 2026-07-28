@@ -6,6 +6,7 @@ namespace Rasuvaeff\Yii3Seo\Tests;
 
 use InvalidArgumentException;
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
 use Rasuvaeff\Yii3Seo\Title;
 use Testo\Assert;
 use Testo\Codecov\Covers;
@@ -45,6 +46,29 @@ final class MetadataDefaultsTest
         Assert::null($defaults->getVerification());
         Assert::same($defaults->getJsonLd(), []);
         Assert::same($defaults->getOther(), []);
+        Assert::null($defaults->getSelfCanonical());
+    }
+
+    public function carriesTheSelfCanonicalPolicyAlongsideAMetadataBase(): void
+    {
+        $selfCanonical = SelfCanonical::keepingQuery('page');
+        $defaults = new MetadataDefaults(
+            metadataBase: 'https://example.com',
+            selfCanonical: $selfCanonical,
+        );
+
+        Assert::same($defaults->getSelfCanonical(), $selfCanonical);
+    }
+
+    public function throwsOnSelfCanonicalWithoutMetadataBase(): void
+    {
+        try {
+            new MetadataDefaults(selfCanonical: SelfCanonical::enabled());
+            Assert::fail('Expected InvalidArgumentException');
+        } catch (InvalidArgumentException $e) {
+            Assert::string($e->getMessage())
+                ->contains('Self-canonical URLs require a metadataBase to be configured');
+        }
     }
 
     public function throwsOnInvalidMetadataBase(): void

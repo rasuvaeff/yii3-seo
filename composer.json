@@ -28,6 +28,9 @@
         "php": "8.3 - 8.5",
         "ext-filter": "*",
         "ext-mbstring": "*",
+        "psr/http-message": "^1.1 || ^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
         "yiisoft/html": "^3.13 || ^4.0",
         "yiisoft/yii-view-renderer": "^7.4"
     },

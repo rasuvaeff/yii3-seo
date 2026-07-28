@@ -311,6 +311,49 @@ new Alternates(
 
 Locales match `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`.
 
+### `SelfCanonical` + `SelfCanonicalMiddleware`
+
+Opt-in: derive the canonical URL of pages that do not declare one from
+`metadataBase` plus the current request path.
+
+```php
+// config/common/params.php
+use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+
+new MetadataDefaults(
+    metadataBase: 'https://example.com',
+    selfCanonical: SelfCanonical::enabled(),                 // drop every query parameter
+    // selfCanonical: SelfCanonical::keepingQuery('page'),   // keep an explicit allow-list
+);
+```
+
+```php
+// config/common/params.php — application middleware stack
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
+
+'middlewares' => [
+    SelfCanonicalMiddleware::class,
+    // ... router and the rest of the stack
+],
+```
+
+A request for `https://example.com/products/1?page=2&utm_source=mail` then
+renders `<link rel="canonical" href="https://example.com/products/1?page=2">`.
+
+| Rule | Behavior |
+|---|---|
+| Request authority | Ignored. Only the path and query are read, so a request on an alternative host, port or scheme still yields the configured site's URL |
+| Query parameters | Dropped by default. `SelfCanonical::keepingQuery(...)` keeps an explicit allow-list |
+| Parameter order | The allow-list order, not the request order, so `?sort=a&page=1` and `?page=1&sort=a` produce the same canonical URL |
+| Array-valued parameters | Never enter a canonical URL (`?tag[]=a` is dropped even if `tag` is allow-listed) |
+| Explicit `Alternates::canonical` | Always wins; hreflang `languages` declared by the page are preserved |
+| `metadataBase` | Required — `MetadataDefaults` throws when `selfCanonical` is set without it |
+| Without the middleware | No request path is recorded and the policy does nothing |
+
+`SelfCanonicalMiddleware` calls `SeoInjection::setRequestPath()`; it works
+regardless of whether the action sets page metadata before or after it.
+
 ### `OpenGraph` + `OgImage`
 
 ```php

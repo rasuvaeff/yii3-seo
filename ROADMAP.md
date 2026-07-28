@@ -67,12 +67,12 @@ adding isolated, uncommon metadata fields.
 
 ### Automatic canonical URL
 
-- [ ] Add an opt-in self-canonical strategy using `metadataBase` plus the
+- [x] Add an opt-in self-canonical strategy using `metadataBase` plus the
   current request path.
-- [ ] Ignore the request authority and strip query parameters by default.
-- [ ] Support an explicit query allow-list for pages whose canonical identity
+- [x] Ignore the request authority and strip query parameters by default.
+- [x] Support an explicit query allow-list for pages whose canonical identity
   genuinely includes selected query parameters.
-- [ ] Keep explicit `Alternates::canonical` values authoritative.
+- [x] Keep explicit `Alternates::canonical` values authoritative.
 
 ### Diagnostics
 

@@ -11,9 +11,16 @@ namespace Rasuvaeff\Yii3Seo;
  */
 final readonly class MetadataResolver
 {
+    /**
+     * @param string|null $requestPath current request path with an optional query string
+     * (for example `/products/1?page=2`), used only by the opt-in
+     * {@see SelfCanonical} policy. The request authority is deliberately not
+     * accepted: canonical URLs are always anchored to `metadataBase`.
+     */
     public function resolve(
         ?Metadata $metadata = null,
         MetadataDefaults $defaults = new MetadataDefaults(),
+        ?string $requestPath = null,
     ): ResolvedMetadata {
         $title = $this->resolveTitle($metadata?->getTitle(), $defaults->getTitle());
         $description = $metadata?->getDescription();
@@ -37,7 +44,11 @@ final readonly class MetadataResolver
             themeColor: $metadata?->getThemeColor() ?? $defaults->getThemeColor(),
             colorScheme: $metadata?->getColorScheme() ?? $defaults->getColorScheme(),
             robots: $metadata?->getRobots() ?? $defaults->getRobots(),
-            alternates: $metadata?->getAlternates(),
+            alternates: $this->resolveAlternates(
+                page: $metadata?->getAlternates(),
+                selfCanonical: $defaults->getSelfCanonical(),
+                requestPath: $requestPath,
+            ),
             openGraph: $openGraph,
             twitter: $this->resolveTwitter(
                 page: $metadata?->getTwitter(),
@@ -52,6 +63,58 @@ final readonly class MetadataResolver
             jsonLd: [...$defaults->getJsonLd(), ...($metadata?->getJsonLd() ?? [])],
             other: [...$defaults->getOther(), ...($metadata?->getOther() ?? [])],
         );
+    }
+
+    private function resolveAlternates(
+        ?Alternates $page,
+        ?SelfCanonical $selfCanonical,
+        ?string $requestPath,
+    ): ?Alternates {
+        if (!$selfCanonical instanceof \Rasuvaeff\Yii3Seo\SelfCanonical || $requestPath === null || $page?->getCanonical() !== null) {
+            return $page;
+        }
+
+        return new Alternates(
+            canonical: $this->canonicalFromRequestPath($selfCanonical, $requestPath),
+            languages: $page?->getLanguages() ?? [],
+        );
+    }
+
+    private function canonicalFromRequestPath(SelfCanonical $selfCanonical, string $requestPath): string
+    {
+        $split = explode('?', $requestPath, 2);
+        $path = $split[0] === '' ? '/' : $split[0];
+        $parameters = $this->parseQuery($split[1] ?? '');
+        $kept = [];
+
+        foreach ($selfCanonical->getQueryParameters() as $name) {
+            if (isset($parameters[$name])) {
+                $kept[$name] = $parameters[$name];
+            }
+        }
+
+        $query = http_build_query($kept);
+
+        return $query === '' ? $path : "{$path}?{$query}";
+    }
+
+    /**
+     * Decodes a query string into scalar `name => value` pairs. Bracketed names
+     * such as `tag[]` stay literal, so array-valued parameters never match an
+     * allow-list entry and never enter a canonical URL.
+     *
+     * @return array<string, string>
+     */
+    private function parseQuery(string $query): array
+    {
+        $parameters = [];
+
+        foreach (explode('&', $query) as $pair) {
+            $parts = explode('=', $pair, 2);
+            $parameters[urldecode($parts[0])] = urldecode($parts[1] ?? '');
+        }
+
+        return $parameters;
     }
 
     private function resolveTitle(?Title $page, ?Title $defaults): string

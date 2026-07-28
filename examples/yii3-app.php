@@ -20,6 +20,8 @@ declare(strict_types=1);
 
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 
@@ -30,7 +32,14 @@ return [
             title: Title::template('%s | My Store', default: 'My Store'),
             openGraph: new OpenGraph(siteName: 'My Store', locale: 'en_US'),
             twitter: new TwitterCard(card: 'summary_large_image', site: '@mystore'),
+            selfCanonical: SelfCanonical::keepingQuery('page'),
         ),
+    ],
+
+    // Required for selfCanonical: records the request path (authority ignored).
+    'middlewares' => [
+        SelfCanonicalMiddleware::class,
+        // ... router and the rest of the application stack
     ],
 ];
 

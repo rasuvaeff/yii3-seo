@@ -16,6 +16,7 @@ Namespace: `Rasuvaeff\Yii3Seo`.
 Public API (`@api`): `Metadata`, `MetadataDefaults`, `MetadataResolver`,
 `ResolvedMetadata`, `MetadataValidator`, `MetadataValidationResult`,
 `MetadataIssue`, `MetadataIssueSeverity`, `Title`, `Alternates`,
+`SelfCanonical`, `SelfCanonicalMiddleware`,
 `OpenGraph`, `OgImage`, `TwitterCard`, `Robots`, `Icons`, `Icon`, `Verification`,
 `Author`, `MetaTag`, `JsonLd`, `SeoInjection`, `SeoMetadataEvent`,
 `SetSeoMetadataEventHandler`. Internal (`@internal`): `UrlResolver`.
@@ -50,10 +51,19 @@ inside the `composer:2` container because the base image has no coverage driver.
 ## Invariants & gotchas
 
 - Event flow: action dispatches `SeoMetadataEvent` → `SetSeoMetadataEventHandler::__invoke()` → `SeoInjection::setMetadata()` → `WebViewRenderer` reads tags.
-- `SeoInjection` is mutable (`final class`) — it caches one `ResolvedMetadata`
-  per request and holds readonly `MetadataDefaults`/`MetadataResolver`
-  dependencies. `setMetadata()` resolves once; `clear()`/`reset()` restores the
-  defaults-only result.
+- `SeoInjection` is mutable (`final class`) — it holds the per-request inputs
+  (`Metadata`, request path) plus readonly `MetadataDefaults`/`MetadataResolver`
+  dependencies, and resolves **lazily and once**: `getResolvedMetadata()` caches,
+  every setter invalidates the cache. **Any new per-request field must be nulled
+  in `clear()`** or it leaks into the next request under a reusable runtime
+  (RoadRunner) — `config/di.php` wires `reset` exactly for this.
+- Self-canonical: `MetadataDefaults::selfCanonical` (a `SelfCanonical` policy,
+  validated to require `metadataBase`) + `SelfCanonicalMiddleware` recording the
+  request path. The policy is applied inside `MetadataResolver`, never in the
+  middleware, so render/validate/export all see the same canonical URL. The
+  request authority is never read — canonical URLs stay anchored to
+  `metadataBase`. Allow-listed query parameters are emitted in allow-list order
+  (canonical stability), and only string values survive.
 - All value objects are `final readonly class` except `Robots` (`final class`, clone-based `with*`) and `SeoInjection`.
 - `Metadata`/`MetadataDefaults` normalize a `string` title to `Title::of()`.
 - Title resolution and merge rules live in `MetadataResolver`; `SeoInjection`

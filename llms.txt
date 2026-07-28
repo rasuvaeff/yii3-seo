@@ -62,8 +62,30 @@ new MetadataDefaults(
     openGraph: new OpenGraph(siteName: 'Acme', locale: 'en_US'),
     twitter: new TwitterCard(card: 'summary_large_image', site: '@acme'),
     icons: null, verification: null, jsonLd: [], other: [],
+    selfCanonical: null,                     // SelfCanonical policy; requires metadataBase
 )
 ```
+
+### SelfCanonical / SelfCanonicalMiddleware (opt-in self-canonical URLs)
+
+```php
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
+
+SelfCanonical::enabled()                      // path only, every query parameter dropped
+SelfCanonical::keepingQuery('page', 'sort')   // keep an allow-list, in the listed order
+new SelfCanonical(['page'])
+
+// config/common/params.php: add SelfCanonicalMiddleware::class to 'middlewares'
+// It records the request path via SeoInjection::setRequestPath().
+```
+
+Rules: authority (scheme/host/port) is never read — canonical URLs are anchored
+to `metadataBase`; allow-list order beats request order so the canonical URL is
+stable; array-valued parameters (`?tag[]=a`) are always dropped; an explicit
+`Alternates::canonical` wins and page hreflang `languages` are preserved;
+`MetadataDefaults` throws when `selfCanonical` is set without `metadataBase`;
+without the middleware no request path is recorded and nothing happens.
 
 ### Title
 
@@ -114,7 +136,12 @@ $injection->getTitle(): string          // resolved <title> for layout
 $injection->getMetaTags(): list<Meta>   // auto-injected by WebViewRenderer
 $injection->getLinkTags(): array<Link>  // auto-injected by WebViewRenderer
 $injection->getJsonLdHtml(): string     // render in layout manually
+$injection->setRequestPath(?string)     // self-canonical input; SelfCanonicalMiddleware calls it
+$injection->clear() / reset()           // drops metadata AND request path (reusable runtimes)
 ```
+
+Resolution is lazy and cached: `getResolvedMetadata()` resolves once and returns
+the same instance until `setMetadata()`, `setRequestPath()` or `clear()` is called.
 
 ### MetadataResolver / ResolvedMetadata
 
