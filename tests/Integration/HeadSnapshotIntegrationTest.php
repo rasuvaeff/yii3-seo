@@ -32,6 +32,24 @@ use Yiisoft\Html\Html;
 #[CoversNothing]
 final class HeadSnapshotIntegrationTest
 {
+    /**
+     * `yiisoft/html` 3.x and 4.x emit tag attributes in a different order, so the
+     * snapshots below compare a canonical ordering instead of the library's own.
+     *
+     * @var list<string>
+     */
+    private const array ATTRIBUTE_ORDER = [
+        'rel',
+        'name',
+        'property',
+        'http-equiv',
+        'hreflang',
+        'type',
+        'sizes',
+        'href',
+        'content',
+    ];
+
     #[DataProvider('pageProvider')]
     public function rendersTheExpectedHead(string $requestPath, ?Metadata $metadata, string $expected): void
     {
@@ -214,11 +232,11 @@ final class HeadSnapshotIntegrationTest
         $head = ['<title>' . Html::encode($injection->getTitle()) . '</title>'];
 
         foreach ($injection->getMetaTags() as $tag) {
-            $head[] = $tag->render();
+            $head[] = $this->withCanonicalAttributeOrder($tag->render());
         }
 
         foreach ($injection->getLinkTags() as $tag) {
-            $head[] = $tag->render();
+            $head[] = $this->withCanonicalAttributeOrder($tag->render());
         }
 
         $jsonLd = $injection->getJsonLdHtml();
@@ -228,5 +246,28 @@ final class HeadSnapshotIntegrationTest
         }
 
         return implode("\n", $head);
+    }
+
+    private function withCanonicalAttributeOrder(string $tag): string
+    {
+        preg_match('/^<([a-z]+)/', $tag, $element);
+        preg_match_all('/[a-z-]+="[^"]*"/', $tag, $matches);
+        $attributes = $matches[0];
+
+        usort($attributes, function (string $a, string $b): int {
+            $comparison = $this->attributeRank($a) <=> $this->attributeRank($b);
+
+            return $comparison === 0 ? strcmp($a, $b) : $comparison;
+        });
+
+        return '<' . $element[1] . ' ' . implode(' ', $attributes) . '>';
+    }
+
+    private function attributeRank(string $attribute): int
+    {
+        $name = strstr($attribute, '=', true);
+        $index = array_search($name, self::ATTRIBUTE_ORDER, true);
+
+        return $index === false ? count(self::ATTRIBUTE_ORDER) : $index;
     }
 }
