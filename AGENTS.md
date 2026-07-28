@@ -118,6 +118,12 @@ inside the `composer:2` container because the base image has no coverage driver.
 - PHP 8.3 target: no `new X()->method()` without parentheses — wrap as `(new X())->method()`.
 - Code: `declare(strict_types=1)`, `final readonly class`, `#[\Override]`, explicit types, named arguments, trailing commas.
 
+- `resources/skills/rasuvaeff-yii3-seo/SKILL.md` is distributed to consumers by the
+  `llm/skills` Composer plugin (declared via `extra.skills`). It is a thin wrapper
+  over `llms.txt`, not a third copy of the API: keep the safety rules and merge
+  table in sync, and leave the exhaustive reference in `llms.txt`. Never add
+  `resources` to `.gitattributes` `export-ignore` — the skill must reach dist.
+
 ## When you finish
 
 - Update `README.md`, `llms.txt` (and `examples/` if usage changed); update

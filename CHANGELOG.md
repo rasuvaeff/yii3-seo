@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ship an agent skill (`resources/skills/rasuvaeff-yii3-seo/SKILL.md`) declared
+  through `extra.skills`, so projects using the `llm/skills` Composer plugin get
+  it synced into `.agents/skills/` on install.
 - Add byte-exact `<head>` snapshots for a minimal page, an article, a product
   and a multilingual page to the Integration suite.
 - Register the `SeoMetadataEvent` handler automatically: the package now ships an

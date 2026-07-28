@@ -25,4 +25,23 @@ final class SetSeoMetadataEventHandlerTest
 
         Assert::same($injection->getTitle(), 'Home');
     }
+
+    /**
+     * The package ships the listener in `config/events-web.php`, and the runner
+     * merges that group recursively — an application that keeps its own entry
+     * after upgrading gets the handler invoked twice per dispatch. That must
+     * stay harmless.
+     */
+    public function invokingTheHandlerTwiceForOneEventIsIdempotent(): void
+    {
+        $injection = new SeoInjection();
+        $handler = new SetSeoMetadataEventHandler(seoInjection: $injection);
+        $event = new SeoMetadataEvent(metadata: new Metadata(title: 'Home', description: 'Desc'));
+
+        $handler($event);
+        $once = $injection->getResolvedMetadata();
+        $handler($event);
+
+        Assert::equals($injection->getResolvedMetadata(), $once);
+    }
 }

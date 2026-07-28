@@ -18,6 +18,7 @@ and a single `MetadataDefaults` instance supplies site-wide values. Tags land
 in `<head>` automatically via `WebViewRenderer`.
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference ready to paste into context.
+> Projects using the [llm/skills](https://github.com/roxblnfk/skills) Composer plugin also get this package's agent skill synced into `.agents/skills/` automatically on install.
 
 ## Requirements
 
@@ -179,6 +180,12 @@ with the tracking parameter stripped, and the layout only had to print
 `HttpApplicationRunner` reads the `events-web` group with `RecursiveMerge`, so
 these listeners merge with the application's own and with other packages'
 listeners for the same event instead of colliding.
+
+**Upgrading from 1.0.x:** remove the `SeoMetadataEvent` entry from the
+application's own `config/common/events-web.php`. Merged listeners stack rather
+than deduplicate, so keeping it invokes the handler twice per dispatch. That is
+harmless today — `setMetadata()` re-resolves the same input — but it is dead
+configuration.
 
 **4. Print title and JSON-LD** — in the layout
 
