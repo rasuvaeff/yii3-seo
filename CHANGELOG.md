@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add `ResolvedMetadata::toArray()`: a normalized array export of the resolved
+  metadata for JSON APIs, SPA payloads, preview tooling and debugging. It
+  resolves crawler-facing URLs against `metadataBase` exactly as rendering does,
+  keeps icon/manifest URLs as configured, and omits nulls and empty collections.
+- Add `MetadataValidator` with `MetadataValidationResult`, `MetadataIssue` and
+  `MetadataIssueSeverity`: typed SEO diagnostics for missing title, description,
+  canonical and social image; missing image alt/dimensions; unresolvable
+  crawler-facing URLs; canonical/`og:url` mismatch; conflicting robots
+  directives and duplicate custom meta tags. Suggested title and description
+  lengths are advisory warnings. The validator never throws.
+- Require `ext-mbstring` for character-accurate title and description length
+  diagnostics.
 - Add `MetadataResolver` and immutable `ResolvedMetadata` as the public,
   renderer-independent result of defaults merging, title templates and social
   fallback rules; expose it through `SeoInjection::getResolvedMetadata()`.

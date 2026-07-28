@@ -14,7 +14,8 @@ tags land in `<head>` automatically.
 Namespace: `Rasuvaeff\Yii3Seo`.
 
 Public API (`@api`): `Metadata`, `MetadataDefaults`, `MetadataResolver`,
-`ResolvedMetadata`, `Title`, `Alternates`,
+`ResolvedMetadata`, `MetadataValidator`, `MetadataValidationResult`,
+`MetadataIssue`, `MetadataIssueSeverity`, `Title`, `Alternates`,
 `OpenGraph`, `OgImage`, `TwitterCard`, `Robots`, `Icons`, `Icon`, `Verification`,
 `Author`, `MetaTag`, `JsonLd`, `SeoInjection`, `SeoMetadataEvent`,
 `SetSeoMetadataEventHandler`. Internal (`@internal`): `UrlResolver`.
@@ -65,6 +66,16 @@ inside the `composer:2` container because the base image has no coverage driver.
 - Fallback cascade (on by default): `og:title`/`og:description` ← resolved title/description; `twitter:*` ← OpenGraph. Explicit values win. **This is our ergonomics, NOT Next.js behavior** (Next.js does not auto-derive `og:title`).
 - `UrlResolver` resolves crawler-facing URLs against `metadataBase`: absolute → validated `FILTER_VALIDATE_URL`; relative → joined to base; relative without base → `InvalidArgumentException`. Applied to canonical, hreflang, `og:url`, `og:image`, `twitter:image`. Icons/manifest URLs are emitted as-is.
 - URL VOs store raw strings (may be relative) — URL validation happens at render time in `UrlResolver`, NOT in the VO constructor. `MetadataDefaults::metadataBase` and `Author::url` are the exceptions: validated absolute in the constructor.
+- `ResolvedMetadata::toArray()` is the export twin of rendering: it resolves the
+  same crawler-facing URLs against `metadataBase` (and throws the same
+  `InvalidArgumentException`), emits icon/manifest URLs as configured, applies
+  the same `website`/`summary_large_image` defaults, and omits nulls and empty
+  collections. Any change to what `SeoInjection` renders must be mirrored there.
+- `MetadataValidator` must never throw: unresolvable URLs are reported as the
+  `url.unresolvable` issue instead of propagating. Issue codes are a public
+  contract — adding one is a minor change, renaming one is breaking.
+- `MetadataValidator` uses `mb_strlen`, so `ext-mbstring` is in `require` and
+  `mbstring` is in `extensions:` of every CI job. Do not drop either.
 - `SeoInjection::getMetaTags()` returns `list<Yiisoft\Html\Tag\Meta>`; `getLinkTags()` returns `array<array-key, Yiisoft\Html\Tag\Link>` with `'canonical'`/`'manifest'` keys.
 - `SeoInjection` implements layout/meta/link injection. The layout receives it
   as `$seo`; `<title>` and JSON-LD use `$seo->getTitle()` and

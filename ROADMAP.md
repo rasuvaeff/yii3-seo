@@ -63,7 +63,7 @@ adding isolated, uncommon metadata fields.
 - [x] Introduce immutable `ResolvedMetadata` as the single normalized result.
 - [x] Render Yii tags from that result; complete HTML and structured array
   exporters remain planned.
-- [ ] Add `toArray()` for API, SPA, preview and debugging use cases.
+- [x] Add `toArray()` for API, SPA, preview and debugging use cases.
 
 ### Automatic canonical URL
 
@@ -76,11 +76,11 @@ adding isolated, uncommon metadata fields.
 
 ### Diagnostics
 
-- [ ] Add `MetadataValidator` returning typed warning/error objects.
-- [ ] Detect missing title, description, canonical and social image.
-- [ ] Detect missing image alt/dimensions, duplicate custom tags, conflicting
+- [x] Add `MetadataValidator` returning typed warning/error objects.
+- [x] Detect missing title, description, canonical and social image.
+- [x] Detect missing image alt/dimensions, duplicate custom tags, conflicting
   robots directives and canonical/`og:url` mismatches.
-- [ ] Keep suggested title/description lengths advisory rather than hard
+- [x] Keep suggested title/description lengths advisory rather than hard
   validation failures.
 
 ### Quality gate

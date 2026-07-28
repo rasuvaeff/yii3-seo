@@ -29,6 +29,13 @@ final class UrlResolverTest
         Assert::same($resolver->resolve('/products/1'), 'https://example.com/products/1');
     }
 
+    public function relativeUrlMayContainAColonAfterTheFirstSegment(): void
+    {
+        $resolver = new UrlResolver('https://example.com');
+
+        Assert::same($resolver->resolve('/catalog/a:b'), 'https://example.com/catalog/a:b');
+    }
+
     public function joinNormalisesSlashes(): void
     {
         $resolver = new UrlResolver('https://example.com/');

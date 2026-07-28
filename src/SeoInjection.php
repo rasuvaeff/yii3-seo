@@ -67,10 +67,6 @@ final class SeoInjection implements LayoutParametersInjectionInterface, MetaTags
     {
         $blocks = $this->getResolvedMetadata()->getJsonLd();
 
-        if ($blocks === []) {
-            return '';
-        }
-
         return implode("\n", array_map(static fn(JsonLd $block): string => $block->toHtml(), $blocks));
     }
 

@@ -126,7 +126,39 @@ $resolved = (new MetadataResolver())->resolve(
 $resolved->getTitle();      // Page | Brand
 $resolved->getOpenGraph();  // field-level merged + title/description fallback
 $resolved->getTwitter();    // field-level merged + OpenGraph fallback
+$resolved->toArray();       // normalized array for APIs/SPA/preview/debugging
 ```
+
+`toArray()` resolves canonical, hreflang, `og:url` and image URLs against
+`metadataBase` (throws `InvalidArgumentException` on a relative URL without a
+base), keeps icon/manifest URLs as configured, omits nulls and empty
+collections, and always includes `title`.
+
+### MetadataValidator / MetadataValidationResult / MetadataIssue
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataValidator;
+
+$result = (new MetadataValidator())->validate($resolved);
+$result->isValid();      // true when no errors; warnings are advisory
+$result->hasErrors();
+$result->hasIssues();
+$result->getIssues();    // list<MetadataIssue>
+$result->getErrors();
+$result->getWarnings();
+
+$issue->getSeverity();   // MetadataIssueSeverity::Error | ::Warning
+$issue->getCode();       // e.g. 'title.missing'
+$issue->getMessage();
+$issue->isError();
+```
+
+Never throws. Codes: `title.missing` (error), `title.too_long`,
+`description.missing`, `description.too_short`, `description.too_long`,
+`canonical.missing`, `canonical.og_url_mismatch` (error), `url.unresolvable`
+(error), `image.missing`, `image.alt_missing`, `image.dimensions_missing`,
+`robots.conflicting` (error), `other.duplicate`. Everything not marked as error
+is a warning. Title/description lengths are advisory (60 / 50-160 characters).
 
 ### Event wiring
 

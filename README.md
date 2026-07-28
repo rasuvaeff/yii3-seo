@@ -222,6 +222,76 @@ Configured relative crawler-facing URLs remain relative in
 applications obtain the current result through
 `SeoInjection::getResolvedMetadata()`.
 
+`ResolvedMetadata::toArray()` exports the same result as a normalized array for
+JSON APIs, SPA payloads, preview tooling and debugging:
+
+```php
+$resolved->toArray();
+// [
+//     'metadataBase' => 'https://example.com',
+//     'title' => 'Product | My Store',
+//     'description' => 'Description',
+//     'openGraph' => [
+//         'title' => 'Product | My Store',
+//         'type' => 'website',
+//         'images' => [['url' => 'https://example.com/og.jpg', 'width' => 1200]],
+//     ],
+//     'twitter' => ['card' => 'summary_large_image', ...],
+// ]
+```
+
+| Rule | Behavior |
+|---|---|
+| Crawler-facing URLs | Canonical, hreflang, `og:url` and images are resolved against `metadataBase`, exactly as rendering resolves them |
+| Icons and manifest | Exported as configured, matching the rendered `<link>` tags |
+| Relative URL without `metadataBase` | Throws `InvalidArgumentException`, the same failure rendering would produce |
+| Empty values | `null` values and empty collections are omitted; `title` is always present |
+| Defaults | `openGraph.type` defaults to `website` and `twitter.card` to `summary_large_image`, as in the rendered head |
+
+### `MetadataValidator`
+
+`MetadataValidator` inspects a `ResolvedMetadata` and reports typed issues. It
+never throws and never modifies metadata, so it is safe to run in a development
+toolbar, a preview page or a CI check:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataValidator;
+
+$result = (new MetadataValidator())->validate($seo->getResolvedMetadata());
+
+$result->isValid();      // true when there are no errors (warnings are advisory)
+$result->hasErrors();
+$result->getErrors();    // list<MetadataIssue>
+$result->getWarnings();  // list<MetadataIssue>
+
+foreach ($result->getIssues() as $issue) {
+    echo $issue->getSeverity()->value, ' ', $issue->getCode(), ': ', $issue->getMessage(), "\n";
+}
+// error title.missing: Page title is empty
+// warning canonical.missing: Canonical URL is not set
+```
+
+Each `MetadataIssue` carries a `MetadataIssueSeverity` (`Error` or `Warning`), a
+stable machine-readable `code` for filtering, and a human-readable message.
+
+| Code | Severity | Reported when |
+|---|---|---|
+| `title.missing` | Error | The resolved title is empty |
+| `title.too_long` | Warning | The title exceeds 60 characters |
+| `description.missing` | Warning | No meta description is set |
+| `description.too_short` | Warning | The description is shorter than 50 characters |
+| `description.too_long` | Warning | The description exceeds 160 characters |
+| `canonical.missing` | Warning | No canonical URL is set |
+| `canonical.og_url_mismatch` | Error | The canonical URL and `og:url` resolve to different URLs |
+| `url.unresolvable` | Error | A crawler-facing URL is invalid or relative without a `metadataBase` |
+| `image.missing` | Warning | Neither an Open Graph nor a Twitter image is set |
+| `image.alt_missing` | Warning | An Open Graph image has no alt text |
+| `image.dimensions_missing` | Warning | An Open Graph image has no width and height |
+| `robots.conflicting` | Error | `robots`/`googlebot` carry contradictory directives such as `index` and `noindex` |
+| `other.duplicate` | Warning | The same custom meta tag is declared twice |
+
+Lengths are advisory: they never make the result invalid.
+
 ### `Title`
 
 | Factory | Use |

@@ -225,6 +225,76 @@ $resolved->getTwitter();     // объединённая Twitter card с fallbac
 Обычно приложение получает текущий результат через
 `SeoInjection::getResolvedMetadata()`.
 
+`ResolvedMetadata::toArray()` экспортирует тот же результат нормализованным
+массивом — для JSON API, SPA-payload-ов, preview-инструментов и отладки:
+
+```php
+$resolved->toArray();
+// [
+//     'metadataBase' => 'https://example.com',
+//     'title' => 'Product | My Store',
+//     'description' => 'Description',
+//     'openGraph' => [
+//         'title' => 'Product | My Store',
+//         'type' => 'website',
+//         'images' => [['url' => 'https://example.com/og.jpg', 'width' => 1200]],
+//     ],
+//     'twitter' => ['card' => 'summary_large_image', ...],
+// ]
+```
+
+| Правило | Поведение |
+|---|---|
+| Crawler-facing URL | Canonical, hreflang, `og:url` и изображения резолвятся относительно `metadataBase` — так же, как при рендеринге |
+| Icons и manifest | Экспортируются как настроены, совпадая с отрендеренными `<link>` |
+| Относительный URL без `metadataBase` | Бросает `InvalidArgumentException` — та же ошибка, что и при рендеринге |
+| Пустые значения | `null` и пустые коллекции опускаются; `title` присутствует всегда |
+| Defaults | `openGraph.type` по умолчанию `website`, `twitter.card` — `summary_large_image`, как в отрендеренном head |
+
+### `MetadataValidator`
+
+`MetadataValidator` анализирует `ResolvedMetadata` и возвращает типизированные
+issue-объекты. Он никогда не бросает исключений и не меняет метаданные, поэтому
+его безопасно запускать в dev-панели, на preview-странице или в CI-проверке:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataValidator;
+
+$result = (new MetadataValidator())->validate($seo->getResolvedMetadata());
+
+$result->isValid();      // true, если нет errors (warnings — рекомендательные)
+$result->hasErrors();
+$result->getErrors();    // list<MetadataIssue>
+$result->getWarnings();  // list<MetadataIssue>
+
+foreach ($result->getIssues() as $issue) {
+    echo $issue->getSeverity()->value, ' ', $issue->getCode(), ': ', $issue->getMessage(), "\n";
+}
+// error title.missing: Page title is empty
+// warning canonical.missing: Canonical URL is not set
+```
+
+Каждый `MetadataIssue` несёт `MetadataIssueSeverity` (`Error` или `Warning`),
+стабильный машиночитаемый `code` для фильтрации и человекочитаемое сообщение.
+
+| Code | Severity | Когда сообщается |
+|---|---|---|
+| `title.missing` | Error | Итоговый title пуст |
+| `title.too_long` | Warning | Title длиннее 60 символов |
+| `description.missing` | Warning | Meta description не задан |
+| `description.too_short` | Warning | Description короче 50 символов |
+| `description.too_long` | Warning | Description длиннее 160 символов |
+| `canonical.missing` | Warning | Canonical URL не задан |
+| `canonical.og_url_mismatch` | Error | Canonical URL и `og:url` резолвятся в разные URL |
+| `url.unresolvable` | Error | Crawler-facing URL невалиден или относителен без `metadataBase` |
+| `image.missing` | Warning | Не задано ни Open Graph, ни Twitter изображение |
+| `image.alt_missing` | Warning | У Open Graph изображения нет alt |
+| `image.dimensions_missing` | Warning | У Open Graph изображения нет width и height |
+| `robots.conflicting` | Error | В `robots`/`googlebot` противоречивые директивы, например `index` и `noindex` |
+| `other.duplicate` | Warning | Один и тот же кастомный meta-тег объявлен дважды |
+
+Длины — рекомендательные: они никогда не делают результат невалидным.
+
 ### `Title`
 
 | Фабрика | Назначение |
