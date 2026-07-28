@@ -19,12 +19,6 @@ final readonly class MetadataDefaults
 {
     private ?Title $title;
 
-    /** @var list<JsonLd> */
-    private array $jsonLd;
-
-    /** @var list<MetaTag> */
-    private array $other;
-
     /**
      * @param list<JsonLd> $jsonLd
      * @param list<MetaTag> $other
@@ -41,16 +35,14 @@ final readonly class MetadataDefaults
         private ?TwitterCard $twitter = null,
         private ?Icons $icons = null,
         private ?Verification $verification = null,
-        array $jsonLd = [],
-        array $other = [],
+        private array $jsonLd = [],
+        private array $other = [],
     ) {
         if ($metadataBase !== null && filter_var($metadataBase, FILTER_VALIDATE_URL) === false) {
             throw new InvalidArgumentException("Invalid metadataBase URL \"{$metadataBase}\"");
         }
 
         $this->title = is_string($title) ? Title::of($title) : $title;
-        $this->jsonLd = $jsonLd;
-        $this->other = $other;
     }
 
     public function getMetadataBase(): ?string

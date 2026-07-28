@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo;
 
 /**
- * Declarative description of a page's SEO metadata, modelled after the Next.js
- * Metadata API. All fields are optional; site-wide values come from
- * {@see MetadataDefaults} and are merged in by {@see SeoInjection}.
+ * Fully merged logical metadata produced by {@see MetadataResolver}.
+ *
+ * Crawler-facing URLs remain in their configured form and are resolved against
+ * `metadataBase` by the rendering adapter. This keeps resolution independent of
+ * a particular output format.
  *
  * @api
  */
-final readonly class Metadata
+final readonly class ResolvedMetadata
 {
-    private ?Title $title;
-
     /**
      * @param list<string> $keywords
      * @param list<Author> $authors
@@ -22,7 +22,8 @@ final readonly class Metadata
      * @param list<MetaTag> $other
      */
     public function __construct(
-        string|Title|null $title = null,
+        private ?string $metadataBase = null,
+        private string $title = '',
         private ?string $description = null,
         private array $keywords = [],
         private array $authors = [],
@@ -41,11 +42,14 @@ final readonly class Metadata
         private ?Verification $verification = null,
         private array $jsonLd = [],
         private array $other = [],
-    ) {
-        $this->title = is_string($title) ? Title::of($title) : $title;
+    ) {}
+
+    public function getMetadataBase(): ?string
+    {
+        return $this->metadataBase;
     }
 
-    public function getTitle(): ?Title
+    public function getTitle(): string
     {
         return $this->title;
     }

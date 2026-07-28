@@ -11,11 +11,11 @@
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-seo.svg)](LICENSE.md)
 [Русская версия](README.ru.md)
 
-Next.js-style typed SEO metadata for Yii3. Describe a page with one declarative
-`Metadata` object — title templates, OpenGraph, Twitter cards, hreflang,
-canonical URL, robots directives, icons, verification and JSON-LD — and a
-single `MetadataDefaults` instance supplies site-wide values. Tags land in
-`<head>` automatically via `WebViewRenderer`.
+Next.js-inspired, Yii3-native typed SEO metadata. Describe a page with one
+declarative `Metadata` object — title templates, OpenGraph, Twitter cards,
+hreflang, canonical URL, robots directives, icons, verification and JSON-LD —
+and a single `MetadataDefaults` instance supplies site-wide values. Tags land
+in `<head>` automatically via `WebViewRenderer`.
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference ready to paste into context.
 
@@ -33,7 +33,7 @@ composer require rasuvaeff/yii3-seo
 
 ## Concept
 
-The API mirrors the Next.js Metadata API:
+The API brings the declarative style of the Next.js Metadata API to Yii3:
 
 | Next.js | yii3-seo |
 |---|---|
@@ -47,6 +47,10 @@ The API mirrors the Next.js Metadata API:
 Defaults are merged with the page metadata: the title template wraps the page
 title, OpenGraph/Twitter inherit unset fields, and relative URLs are resolved
 against `metadataBase`.
+
+Unlike Next.js, nested OpenGraph/Twitter values are merged field by field and
+social title, description and image fallbacks are enabled by default. These
+Yii3-native rules reduce repetition while explicit page values always win.
 
 ## Usage
 
@@ -152,12 +156,14 @@ final readonly class ProductAction
 ### 5. Title and JSON-LD in layout
 
 `<title>` and `<script type="application/ld+json">` are not covered by the
-injection interfaces. Inject `SeoInjection` into your layout and render manually:
+meta/link injection interfaces. Once `SeoInjection` is registered in
+`WebViewRenderer`, it is also available to the layout automatically as `$seo`:
 
 ```php
 <!-- layout.php -->
-<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
-<?= $seoInjection->getJsonLdHtml() ?>
+<?php use Yiisoft\Html\Html; ?>
+<title><?= Html::encode($seo->getTitle()) ?></title>
+<?= $seo->getJsonLdHtml() ?>
 ```
 
 ## Public API
@@ -191,6 +197,30 @@ Site-wide defaults: `metadataBase`, `title` (template/default),
 `applicationName`, `generator`, `themeColor`, `colorScheme`, `robots`,
 `openGraph`, `twitter`, `icons`, `verification`, `jsonLd`, `other`. Provide via
 the `rasuvaeff/yii3-seo` → `defaults` parameter.
+
+### `MetadataResolver` + `ResolvedMetadata`
+
+`MetadataResolver` is the single source of truth for defaults, title templates
+and social fallback rules. It returns an immutable `ResolvedMetadata` that can
+be inspected independently of Yii rendering:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataResolver;
+
+$resolved = (new MetadataResolver())->resolve(
+    metadata: new Metadata(title: 'Product', description: 'Description'),
+    defaults: $defaults,
+);
+
+$resolved->getTitle();       // "Product | My Store"
+$resolved->getOpenGraph();   // merged OpenGraph with title/description fallback
+$resolved->getTwitter();     // merged Twitter card with OpenGraph fallback
+```
+
+Configured relative crawler-facing URLs remain relative in
+`ResolvedMetadata`; rendering resolves them against `metadataBase`. Normally
+applications obtain the current result through
+`SeoInjection::getResolvedMetadata()`.
 
 ### `Title`
 
@@ -280,15 +310,17 @@ Renders as `<script type="application/ld+json">` with `JSON_HEX_TAG` to prevent
 
 ### `SeoInjection`
 
-Singleton registered in DI. Implements `MetaTagsInjectionInterface` +
-`LinkTagsInjectionInterface`. The package DI config also registers a service
-`reset` hook, so stale per-request metadata is cleared between requests in
-reusable runtimes.
+Singleton registered in DI. Implements `LayoutParametersInjectionInterface`,
+`MetaTagsInjectionInterface` and `LinkTagsInjectionInterface`. The package DI
+config also registers a service `reset` hook, so stale per-request metadata is
+cleared between requests in reusable runtimes.
 
 | Method | Description |
 |---|---|
 | `setMetadata(Metadata)` | Set metadata for the current request |
 | `clear()` | Reset (useful in tests) |
+| `getLayoutParameters(): array` | Exposes the injection to layouts as `$seo` |
+| `getResolvedMetadata(): ResolvedMetadata` | Fully merged logical metadata |
 | `getTitle(): string` | Resolved title for `<title>` |
 | `getMetaTags(): list<Meta>` | Called by `WebViewRenderer` |
 | `getLinkTags(): array<Link>` | Called by `WebViewRenderer` |
@@ -304,6 +336,9 @@ reusable runtimes.
 
 See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
 [`examples/yii3-app.php`](examples/yii3-app.php).
+
+See [ROADMAP.md](ROADMAP.md) for planned automatic canonical URLs, diagnostics,
+sitemaps, `robots.txt` and curated structured-data builders.
 
 ## Development
 

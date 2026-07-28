@@ -15,6 +15,7 @@ use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\MetaTag;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Rasuvaeff\Yii3Seo\ResolvedMetadata;
 use Rasuvaeff\Yii3Seo\Robots;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\Title;
@@ -38,6 +39,24 @@ final class SeoInjectionTest
         Assert::same($injection->getLinkTags(), []);
         Assert::same($injection->getTitle(), '');
         Assert::same($injection->getJsonLdHtml(), '');
+    }
+
+    public function exposesItselfAsSeoLayoutParameter(): void
+    {
+        $injection = new SeoInjection();
+
+        Assert::same($injection->getLayoutParameters(), ['seo' => $injection]);
+    }
+
+    public function exposesResolvedMetadata(): void
+    {
+        $injection = new SeoInjection(new MetadataDefaults(title: Title::template('%s | Acme')));
+        $injection->setMetadata(new Metadata(title: 'Home'));
+
+        $resolved = $injection->getResolvedMetadata();
+
+        Assert::instanceOf($resolved, ResolvedMetadata::class);
+        Assert::same($resolved->getTitle(), 'Home | Acme');
     }
 
     public function titleTemplateFromDefaultsIsApplied(): void

@@ -53,6 +53,9 @@ jobs:
       - name: Build
         run: composer build
 
+      - name: Integration tests
+        run: vendor/bin/testo --suite=Integration
+
   prefer-lowest:
     name: Prefer lowest
     runs-on: ubuntu-latest
@@ -83,6 +86,9 @@ jobs:
 
       - name: Build
         run: composer build
+
+      - name: Integration tests
+        run: vendor/bin/testo --suite=Integration
 
   coverage:
     name: Coverage & Mutation

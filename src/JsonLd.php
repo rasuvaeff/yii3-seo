@@ -35,7 +35,7 @@ final readonly class JsonLd
                 flags: JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_THROW_ON_ERROR,
             );
         } catch (JsonException $e) {
-            throw new RuntimeException("Failed to encode JSON-LD data: {$e->getMessage()}", previous: $e);
+            throw new RuntimeException("Failed to encode JSON-LD data: {$e->getMessage()}", $e->getCode(), previous: $e);
         }
 
         return "<script type=\"application/ld+json\">\n{$json}\n</script>";

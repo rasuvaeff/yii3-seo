@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- Add `MetadataResolver` and immutable `ResolvedMetadata` as the public,
+  renderer-independent result of defaults merging, title templates and social
+  fallback rules; expose it through `SeoInjection::getResolvedMetadata()`.
+- Refactor `SeoInjection` into a Yii/HTML adapter over the shared resolved
+  result without changing rendered metadata.
+- Position the package accurately as Next.js-inspired and Yii3-native, with its
+  field-level social merge differences documented.
+- Expose `SeoInjection` to Yii layouts as the `$seo` parameter through
+  `LayoutParametersInjectionInterface`, removing the need to inject it into the
+  layout separately.
+- Run the full-head Integration suite in the build workflow on the supported
+  PHP matrix and prefer-lowest dependencies.
+- Add a prioritized product roadmap for frictionless metadata, crawlability and
+  rich-result support.
+- Align the existing source with the current Rector rules so `release-check`
+  remains green.
+
 ## 1.0.3 — 2026-07-25
 
 - Reject trailing newlines in hreflang/robots directive validation: anchor
@@ -39,4 +58,3 @@ Next.js-style declarative SEO metadata for Yii3.
 - `SeoMetadataEvent` + `SetSeoMetadataEventHandler` — event-based pattern for setting metadata from actions.
 - `MetaTag` — typed custom `name`, `property`, `http-equiv` meta tags.
 - `JsonLd` — `<script type="application/ld+json">` with `JSON_HEX_TAG` injection prevention.
-

@@ -125,6 +125,7 @@ final readonly class ProductAction
 
 templates/layout/main.php
 -------------------------
-<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
-<?= $seoInjection->getJsonLdHtml() ?>
+<?php use Yiisoft\Html\Html; ?>
+<title><?= Html::encode($seo->getTitle()) ?></title>
+<?= $seo->getJsonLdHtml() ?>
 TEXT;

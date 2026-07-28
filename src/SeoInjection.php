@@ -7,6 +7,7 @@ namespace Rasuvaeff\Yii3Seo;
 use Yiisoft\Html\Html;
 use Yiisoft\Html\Tag\Link;
 use Yiisoft\Html\Tag\Meta;
+use Yiisoft\Yii\View\Renderer\LayoutParametersInjectionInterface;
 use Yiisoft\Yii\View\Renderer\LinkTagsInjectionInterface;
 use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
 
@@ -16,22 +17,28 @@ use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
  *
  * @api
  */
-final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectionInterface
+final class SeoInjection implements LayoutParametersInjectionInterface, MetaTagsInjectionInterface, LinkTagsInjectionInterface
 {
-    private ?Metadata $metadata = null;
+    private ResolvedMetadata $resolvedMetadata;
 
     public function __construct(
         private readonly MetadataDefaults $defaults = new MetadataDefaults(),
-    ) {}
+        private readonly MetadataResolver $metadataResolver = new MetadataResolver(),
+    ) {
+        $this->resolvedMetadata = $this->metadataResolver->resolve(defaults: $this->defaults);
+    }
 
     public function setMetadata(Metadata $metadata): void
     {
-        $this->metadata = $metadata;
+        $this->resolvedMetadata = $this->metadataResolver->resolve(
+            metadata: $metadata,
+            defaults: $this->defaults,
+        );
     }
 
     public function clear(): void
     {
-        $this->metadata = null;
+        $this->resolvedMetadata = $this->metadataResolver->resolve(defaults: $this->defaults);
     }
 
     public function reset(): void
@@ -39,28 +46,26 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
         $this->clear();
     }
 
+    /** @return array{seo: self} */
+    #[\Override]
+    public function getLayoutParameters(): array
+    {
+        return ['seo' => $this];
+    }
+
     public function getTitle(): string
     {
-        $pageTitle = $this->metadata?->getTitle();
+        return $this->getResolvedMetadata()->getTitle();
+    }
 
-        if ($pageTitle === null) {
-            return $this->defaults->getTitle()?->getDefault() ?? '';
-        }
-
-        $value = $pageTitle->getValue() ?? '';
-
-        if ($pageTitle->isAbsolute()) {
-            return $value;
-        }
-
-        $template = $this->defaults->getTitle()?->getTemplate();
-
-        return $template !== null ? str_replace('%s', $value, $template) : $value;
+    public function getResolvedMetadata(): ResolvedMetadata
+    {
+        return $this->resolvedMetadata;
     }
 
     public function getJsonLdHtml(): string
     {
-        $blocks = [...$this->defaults->getJsonLd(), ...($this->metadata?->getJsonLd() ?? [])];
+        $blocks = $this->getResolvedMetadata()->getJsonLd();
 
         if ($blocks === []) {
             return '';
@@ -74,62 +79,63 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
     public function getMetaTags(): array
     {
         $tags = [];
+        $metadata = $this->getResolvedMetadata();
 
-        $description = $this->metadata?->getDescription();
+        $description = $metadata->getDescription();
 
         if ($description !== null) {
             $tags[] = $this->metaName('description', $description);
         }
 
-        $keywords = $this->metadata?->getKeywords() ?? [];
+        $keywords = $metadata->getKeywords();
 
         if ($keywords !== []) {
             $tags[] = $this->metaName('keywords', implode(', ', $keywords));
         }
 
-        foreach ($this->metadata?->getAuthors() ?? [] as $author) {
+        foreach ($metadata->getAuthors() as $author) {
             $tags[] = $this->metaName('author', $author->getName());
         }
 
-        $applicationName = $this->metadata?->getApplicationName() ?? $this->defaults->getApplicationName();
+        $applicationName = $metadata->getApplicationName();
 
         if ($applicationName !== null) {
             $tags[] = $this->metaName('application-name', $applicationName);
         }
 
-        $generator = $this->metadata?->getGenerator() ?? $this->defaults->getGenerator();
+        $generator = $metadata->getGenerator();
 
         if ($generator !== null) {
             $tags[] = $this->metaName('generator', $generator);
         }
 
-        $creator = $this->metadata?->getCreator();
+        $creator = $metadata->getCreator();
 
         if ($creator !== null) {
             $tags[] = $this->metaName('creator', $creator);
         }
 
-        $publisher = $this->metadata?->getPublisher();
+        $publisher = $metadata->getPublisher();
 
         if ($publisher !== null) {
             $tags[] = $this->metaName('publisher', $publisher);
         }
 
-        $themeColor = $this->metadata?->getThemeColor() ?? $this->defaults->getThemeColor();
+        $themeColor = $metadata->getThemeColor();
 
         if ($themeColor !== null) {
             $tags[] = $this->metaName('theme-color', $themeColor);
         }
 
-        $colorScheme = $this->metadata?->getColorScheme() ?? $this->defaults->getColorScheme();
+        $colorScheme = $metadata->getColorScheme();
 
         if ($colorScheme !== null) {
             $tags[] = $this->metaName('color-scheme', $colorScheme);
         }
 
-        $robots = $this->metadata?->getRobots() ?? $this->defaults->getRobots();
+        $robots = $metadata->getRobots();
 
-        if ($robots !== null) {
+        if ($robots instanceof \Rasuvaeff\Yii3Seo\Robots) {
             $tags[] = $this->metaName('robots', implode(', ', $robots->getDirectives()));
 
             $googleBot = $robots->getGoogleBotDirectives();
@@ -139,13 +145,13 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
             }
         }
 
-        $verification = $this->metadata?->getVerification() ?? $this->defaults->getVerification();
+        $verification = $metadata->getVerification();
 
-        if ($verification !== null) {
+        if ($verification instanceof \Rasuvaeff\Yii3Seo\Verification) {
             $tags = [...$tags, ...$this->verificationTags($verification)];
         }
 
-        foreach ([...$this->defaults->getOther(), ...($this->metadata?->getOther() ?? [])] as $metaTag) {
+        foreach ($metadata->getOther() as $metaTag) {
             $tags[] = match ($metaTag->getAttributeType()) {
                 'name' => $this->metaName($metaTag->getAttributeValue(), $metaTag->getContent()),
                 'property' => $this->metaProperty($metaTag->getAttributeValue(), $metaTag->getContent()),
@@ -153,20 +159,17 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
             };
         }
 
-        $resolver = $this->resolver();
-        $title = $this->getTitle();
-        $og = $this->mergedOpenGraph();
-        $ogTitle = $og?->getTitle() ?? ($title !== '' ? $title : null);
-        $ogDescription = $og?->getDescription() ?? $description;
+        $resolver = $this->urlResolver($metadata);
+        $og = $metadata->getOpenGraph();
 
-        if ($og !== null) {
-            $tags = [...$tags, ...$this->openGraphTags($og, $ogTitle, $ogDescription, $resolver)];
+        if ($og instanceof \Rasuvaeff\Yii3Seo\OpenGraph) {
+            $tags = [...$tags, ...$this->openGraphTags($og, $resolver)];
         }
 
-        $twitter = $this->mergedTwitter();
+        $twitter = $metadata->getTwitter();
 
-        if ($twitter !== null) {
-            $tags = [...$tags, ...$this->twitterTags($twitter, $og, $ogTitle, $ogDescription, $resolver)];
+        if ($twitter instanceof \Rasuvaeff\Yii3Seo\TwitterCard) {
+            $tags = [...$tags, ...$this->twitterTags($twitter, $resolver)];
         }
 
         return $tags;
@@ -177,10 +180,11 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
     public function getLinkTags(): array
     {
         $tags = [];
-        $resolver = $this->resolver();
-        $alternates = $this->metadata?->getAlternates();
+        $metadata = $this->getResolvedMetadata();
+        $resolver = $this->urlResolver($metadata);
+        $alternates = $metadata->getAlternates();
 
-        if ($alternates !== null) {
+        if ($alternates instanceof \Rasuvaeff\Yii3Seo\Alternates) {
             if ($alternates->getCanonical() !== null) {
                 $tags['canonical'] = Html::link()->rel('canonical')->href($resolver->resolve($alternates->getCanonical()));
             }
@@ -190,9 +194,9 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
             }
         }
 
-        $icons = $this->metadata?->getIcons() ?? $this->defaults->getIcons();
+        $icons = $metadata->getIcons();
 
-        if ($icons !== null) {
+        if ($icons instanceof \Rasuvaeff\Yii3Seo\Icons) {
             foreach ($icons->all() as $icon) {
                 $link = Html::link()->rel($icon->getRel())->href($icon->getUrl());
 
@@ -208,13 +212,13 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
             }
         }
 
-        $manifest = $this->metadata?->getManifest();
+        $manifest = $metadata->getManifest();
 
         if ($manifest !== null) {
             $tags['manifest'] = Html::link()->rel('manifest')->href($manifest);
         }
 
-        foreach ($this->metadata?->getAuthors() ?? [] as $author) {
+        foreach ($metadata->getAuthors() as $author) {
             if ($author->getUrl() !== null) {
                 $tags[] = Html::link()->rel('author')->href($author->getUrl());
             }
@@ -223,54 +227,17 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
         return $tags;
     }
 
-    private function resolver(): UrlResolver
+    private function urlResolver(ResolvedMetadata $metadata): UrlResolver
     {
-        return new UrlResolver($this->defaults->getMetadataBase());
-    }
-
-    private function mergedOpenGraph(): ?OpenGraph
-    {
-        $defaults = $this->defaults->getOpenGraph();
-        $page = $this->metadata?->getOpenGraph();
-
-        if ($defaults === null && $page === null) {
-            return null;
-        }
-
-        return new OpenGraph(
-            title: $page?->getTitle() ?? $defaults?->getTitle(),
-            description: $page?->getDescription() ?? $defaults?->getDescription(),
-            type: $page?->getType() ?? $defaults?->getType(),
-            url: $page?->getUrl() ?? $defaults?->getUrl(),
-            siteName: $page?->getSiteName() ?? $defaults?->getSiteName(),
-            locale: $page?->getLocale() ?? $defaults?->getLocale(),
-            images: ($page !== null && $page->getImages() !== []) ? $page->getImages() : ($defaults?->getImages() ?? []),
-        );
-    }
-
-    private function mergedTwitter(): ?TwitterCard
-    {
-        $defaults = $this->defaults->getTwitter();
-        $page = $this->metadata?->getTwitter();
-
-        if ($defaults === null && $page === null) {
-            return null;
-        }
-
-        return new TwitterCard(
-            card: $page?->getCard() ?? $defaults?->getCard(),
-            site: $page?->getSite() ?? $defaults?->getSite(),
-            creator: $page?->getCreator() ?? $defaults?->getCreator(),
-            title: $page?->getTitle() ?? $defaults?->getTitle(),
-            description: $page?->getDescription() ?? $defaults?->getDescription(),
-            images: ($page !== null && $page->getImages() !== []) ? $page->getImages() : ($defaults?->getImages() ?? []),
-        );
+        return new UrlResolver($metadata->getMetadataBase());
     }
 
     /** @return list<Meta> */
-    private function openGraphTags(OpenGraph $og, ?string $title, ?string $description, UrlResolver $resolver): array
+    private function openGraphTags(OpenGraph $og, UrlResolver $resolver): array
     {
         $tags = [];
+        $title = $og->getTitle();
+        $description = $og->getDescription();
 
         if ($title !== null) {
             $tags[] = $this->metaProperty('og:title', $title);
@@ -320,9 +287,6 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
     /** @return list<Meta> */
     private function twitterTags(
         TwitterCard $twitter,
-        ?OpenGraph $og,
-        ?string $ogTitle,
-        ?string $ogDescription,
         UrlResolver $resolver,
     ): array {
         $tags = [$this->metaName('twitter:card', $twitter->getCard() ?? 'summary_large_image')];
@@ -335,25 +299,19 @@ final class SeoInjection implements MetaTagsInjectionInterface, LinkTagsInjectio
             $tags[] = $this->metaName('twitter:creator', $twitter->getCreator());
         }
 
-        $title = $twitter->getTitle() ?? $ogTitle;
+        $title = $twitter->getTitle();
 
         if ($title !== null) {
             $tags[] = $this->metaName('twitter:title', $title);
         }
 
-        $description = $twitter->getDescription() ?? $ogDescription;
+        $description = $twitter->getDescription();
 
         if ($description !== null) {
             $tags[] = $this->metaName('twitter:description', $description);
         }
 
-        $images = $twitter->getImages();
-
-        if ($images === [] && $og !== null) {
-            $images = array_map(static fn(OgImage $image): string => $image->getUrl(), $og->getImages());
-        }
-
-        foreach ($images as $image) {
+        foreach ($twitter->getImages() as $image) {
             $tags[] = $this->metaName('twitter:image', $resolver->resolve($image));
         }
 

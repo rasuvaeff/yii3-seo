@@ -11,11 +11,12 @@
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-seo.svg)](LICENSE.md)
 [English version](README.md)
 
-Типизированные SEO-метаданные в стиле Next.js для Yii3. Опишите страницу одним
-декларативным объектом `Metadata` — шаблоны title, OpenGraph, Twitter cards,
-hreflang, canonical URL, robots-директивы, иконки, verification и JSON-LD — а
-единственный инстанс `MetadataDefaults` предоставит значения для всего сайта.
-Теги попадают в `<head>` автоматически через `WebViewRenderer`.
+Типизированные SEO-метаданные, вдохновлённые Next.js и нативные для Yii3.
+Опишите страницу одним декларативным объектом `Metadata` — шаблоны title,
+OpenGraph, Twitter cards, hreflang, canonical URL, robots-директивы, иконки,
+verification и JSON-LD — а единственный инстанс `MetadataDefaults` предоставит
+значения для всего сайта. Теги попадают в `<head>` автоматически через
+`WebViewRenderer`.
 
 > Используете AI-ассистента? В [llms.txt](llms.txt) — компактный API-справочник,
 > готовый к вставке в контекст.
@@ -34,7 +35,7 @@ composer require rasuvaeff/yii3-seo
 
 ## Концепция
 
-API повторяет Next.js Metadata API:
+API переносит декларативный стиль Next.js Metadata API в Yii3:
 
 | Next.js | yii3-seo |
 |---|---|
@@ -48,6 +49,11 @@ API повторяет Next.js Metadata API:
 Defaults мержатся с метаданными страницы: шаблон title оборачивает title
 страницы, OpenGraph/Twitter наследуют незаданные поля, а относительные URL-ы
 резолвятся против `metadataBase`.
+
+В отличие от Next.js, вложенные значения OpenGraph/Twitter мержатся по полям,
+а fallback-и social title, description и image включены по умолчанию. Эти
+нативные для Yii3 правила уменьшают дублирование; явные значения страницы
+всегда имеют приоритет.
 
 ## Использование
 
@@ -153,12 +159,14 @@ final readonly class ProductAction
 ### 5. Title и JSON-LD в layout-е
 
 `<title>` и `<script type="application/ld+json">` не покрыты injection
-интерфейсами. Инжектируйте `SeoInjection` в layout и рендерите вручную:
+интерфейсами для meta/link. После регистрации `SeoInjection` в
+`WebViewRenderer` он автоматически доступен в layout-е как `$seo`:
 
 ```php
 <!-- layout.php -->
-<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
-<?= $seoInjection->getJsonLdHtml() ?>
+<?php use Yiisoft\Html\Html; ?>
+<title><?= Html::encode($seo->getTitle()) ?></title>
+<?= $seo->getJsonLdHtml() ?>
 ```
 
 ## Публичный API
@@ -192,6 +200,30 @@ Defaults для всего сайта: `metadataBase`, `title` (шаблон/def
 `applicationName`, `generator`, `themeColor`, `colorScheme`, `robots`,
 `openGraph`, `twitter`, `icons`, `verification`, `jsonLd`, `other`. Задаются
 через параметр `rasuvaeff/yii3-seo` → `defaults`.
+
+### `MetadataResolver` + `ResolvedMetadata`
+
+`MetadataResolver` — единый источник правил для defaults, шаблонов title и
+social fallback-ов. Он возвращает иммутабельный `ResolvedMetadata`, который
+можно анализировать независимо от Yii-рендеринга:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataResolver;
+
+$resolved = (new MetadataResolver())->resolve(
+    metadata: new Metadata(title: 'Product', description: 'Description'),
+    defaults: $defaults,
+);
+
+$resolved->getTitle();       // "Product | My Store"
+$resolved->getOpenGraph();   // объединённый OpenGraph с fallback title/description
+$resolved->getTwitter();     // объединённая Twitter card с fallback из OpenGraph
+```
+
+Настроенные относительные crawler-facing URL остаются относительными в
+`ResolvedMetadata`; при рендеринге они резолвятся относительно `metadataBase`.
+Обычно приложение получает текущий результат через
+`SeoInjection::getResolvedMetadata()`.
 
 ### `Title`
 
@@ -281,15 +313,17 @@ JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage', 'na
 
 ### `SeoInjection`
 
-Singleton, регистрируемый в DI. Реализует `MetaTagsInjectionInterface` +
-`LinkTagsInjectionInterface`. DI-конфиг пакета также регистрирует сервисный
-хук `reset`, поэтому устаревшие метаданные per-request очищаются между
-запросами в переиспользуемых runtime-ах.
+Singleton, регистрируемый в DI. Реализует `LayoutParametersInjectionInterface`,
+`MetaTagsInjectionInterface` и `LinkTagsInjectionInterface`. DI-конфиг пакета
+также регистрирует сервисный хук `reset`, поэтому устаревшие метаданные
+per-request очищаются между запросами в переиспользуемых runtime-ах.
 
 | Метод | Описание |
 |---|---|
 | `setMetadata(Metadata)` | Установить метаданные для текущего запроса |
 | `clear()` | Сброс (полезно в тестах) |
+| `getLayoutParameters(): array` | Передаёт injection в layout как `$seo` |
+| `getResolvedMetadata(): ResolvedMetadata` | Полностью объединённые логические metadata |
 | `getTitle(): string` | Резолвленный title для `<title>` |
 | `getMetaTags(): list<Meta>` | Вызывается `WebViewRenderer`-ом |
 | `getLinkTags(): array<Link>` | Вызывается `WebViewRenderer`-ом |
@@ -308,6 +342,9 @@ Singleton, регистрируемый в DI. Реализует `MetaTagsInjec
 
 См. [`examples/`](examples/) — запускаемые скрипты и эскиз Yii3-интеграции:
 [`examples/yii3-app.php`](examples/yii3-app.php).
+
+План автоматических canonical URL, диагностики, sitemap, `robots.txt` и
+типизированных structured-data builders находится в [ROADMAP.md](ROADMAP.md).
 
 ## Разработка
 
