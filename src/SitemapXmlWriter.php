@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Rasuvaeff\Yii3Seo;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use XMLWriter;
 
@@ -17,7 +18,7 @@ use XMLWriter;
  *
  * @internal
  */
-final class SitemapXmlWriter
+final readonly class SitemapXmlWriter
 {
     public const string URLSET_HEADER = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
         . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
@@ -31,9 +32,9 @@ final class SitemapXmlWriter
 
     public const string SITEMAP_INDEX_FOOTER = '</sitemapindex>' . "\n";
 
-    private readonly XMLWriter $writer;
+    private XMLWriter $writer;
 
-    public function __construct(private readonly UrlResolver $urlResolver)
+    public function __construct(private UrlResolver $urlResolver)
     {
         $this->writer = new XMLWriter();
         $this->writer->openMemory();
@@ -46,13 +47,13 @@ final class SitemapXmlWriter
 
         $lastModified = $url->getLastModified();
 
-        if ($lastModified !== null) {
+        if ($lastModified instanceof DateTimeImmutable) {
             $this->writer->writeElement('lastmod', $lastModified->format(DateTimeInterface::ATOM));
         }
 
         $changeFrequency = $url->getChangeFrequency();
 
-        if ($changeFrequency !== null) {
+        if ($changeFrequency instanceof ChangeFrequency) {
             $this->writer->writeElement('changefreq', $changeFrequency->value);
         }
 
@@ -88,7 +89,7 @@ final class SitemapXmlWriter
 
         $lastModified = $entry->getLastModified();
 
-        if ($lastModified !== null) {
+        if ($lastModified instanceof DateTimeImmutable) {
             $this->writer->writeElement('lastmod', $lastModified->format(DateTimeInterface::ATOM));
         }
 

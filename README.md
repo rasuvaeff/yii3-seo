@@ -15,7 +15,8 @@ Next.js-inspired, Yii3-native typed SEO metadata. Describe a page with one
 declarative `Metadata` object — title templates, OpenGraph, Twitter cards,
 hreflang, canonical URL, robots directives, icons, verification and JSON-LD —
 and a single `MetadataDefaults` instance supplies site-wide values. Tags land
-in `<head>` automatically via `WebViewRenderer`.
+in `<head>` automatically via `WebViewRenderer`. XML sitemaps are generated from
+the same configured origin.
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference ready to paste into context.
 > Projects using the [llm/skills](https://github.com/roxblnfk/skills) Composer plugin also get this package's agent skill synced into `.agents/skills/` automatically on install.
@@ -564,7 +565,15 @@ The layout depends only on the URL stream:
 `export()` returns the written file paths in write order. Nothing is deleted:
 chunk files left by an earlier, larger export stay on disk and the fresh index
 never references them. A single URL that cannot fit into the byte limit throws
-`InvalidArgumentException` rather than producing an over-limit file.
+`InvalidArgumentException` rather than producing an over-limit file — the chunk
+opened at that moment is left on disk without its closing tag, so treat a failed
+export as one to re-run, not as a partial result to publish.
+
+`publicPath` must match where the written files are actually served from:
+exporting into `/var/www/public/sitemaps` while leaving `publicPath` at `/`
+produces an index pointing at `https://example.com/sitemap-1.xml`, which 404s.
+Nothing can check this for you — the exporter never sees the URL the directory
+is published under.
 
 `SitemapFileExporter` is wired in DI and inherits `metadataBase` from the
 configured `MetadataDefaults`; `publicPath` comes from the

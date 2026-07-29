@@ -261,7 +261,8 @@ $paths = (new SitemapFileExporter('https://example.com', new SitemapLimits(), '/
 Rules:
 
 - One file -> `sitemap.xml` (a `<urlset>`). More than one -> `sitemap-1.xml` … `sitemap-N.xml` plus a `sitemap.xml` index. `export()` returns the written paths in write order and deletes nothing.
-- `SitemapLimits` accepts stricter values only; above 50 000 / 52 428 800 it throws. A single URL that cannot fit the byte limit throws instead of producing an over-limit file.
+- `SitemapLimits` accepts stricter values only; above 50 000 / 52 428 800 it throws. A single URL that cannot fit the byte limit throws instead of producing an over-limit file; the chunk open at that moment stays on disk unterminated, so a failed export is re-run, not published.
+- `publicPath` must match where the exported directory is actually served from — a mismatch yields an index full of 404s and nothing can detect it.
 - A document built from a `Generator` renders once; pass an array to re-render.
 - `SitemapFileExporter` is in the package DI config and inherits `metadataBase` from `MetadataDefaults`; `publicPath` comes from `rasuvaeff/yii3-seo` → `sitemap` → `publicPath` and prefixes the index entries.
 - `lastmod` is a `DateTimeImmutable` rendered in W3C datetime (`DateTimeInterface::ATOM`). The exporter never stamps a timestamp itself — pass one to `export()` if the index needs `lastmod`.
