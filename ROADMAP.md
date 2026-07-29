@@ -115,12 +115,16 @@ adding isolated, uncommon metadata fields.
 
 ### robots.txt and response policy
 
-- [ ] Add typed `RobotsTxt` groups with `User-agent`, `Allow`, `Disallow` and
-  `Sitemap` directives.
-- [ ] Provide a PSR-7 response/action suitable for a Yii route.
-- [ ] Support environment policies, including a forced non-production disallow.
-- [ ] Allow a `Robots` policy to be serialized as `X-Robots-Tag` for non-HTML
-  resources.
+- [x] Add typed `RobotsTxt` groups with `User-agent`, `Allow`, `Disallow` and
+  `Sitemap` directives. Values carrying a control character are rejected, so
+  configuration cannot forge a directive line.
+- [x] Provide a PSR-7 response/action suitable for a Yii route
+  (`RobotsTxtAction`, `RobotsTxtResponseFactory`).
+- [x] Support environment policies, including a forced non-production disallow.
+  The decision is always the application's: `robotsTxt.indexable` is a
+  parameter, never an environment sniff.
+- [x] Allow a `Robots` policy to be serialized as `X-Robots-Tag` for non-HTML
+  resources (`Robots::toHeaderValues()`).
 
 ## 1.3 - Rich results and social metadata
 

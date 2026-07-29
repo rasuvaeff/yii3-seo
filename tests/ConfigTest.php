@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Rasuvaeff\Yii3Seo\Tests;
 
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\RobotsTxt;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
@@ -39,6 +40,40 @@ final class ConfigTest
     public function paramsDeclareTheSitemapPublicPath(): void
     {
         Assert::same($this->params()['rasuvaeff/yii3-seo']['sitemap']['publicPath'], '/');
+    }
+
+    public function anIndexableSiteGetsAPermissiveRobotsTxt(): void
+    {
+        $robotsTxt = $this->di()[RobotsTxt::class];
+
+        Assert::instanceOf($robotsTxt, RobotsTxt::class);
+        Assert::same($robotsTxt->toString(), "User-agent: *\nDisallow:\n");
+    }
+
+    public function aNonIndexableSiteGetsAFullDisallow(): void
+    {
+        $di = $this->diWith(['rasuvaeff/yii3-seo' => ['robotsTxt' => ['indexable' => false]]]);
+
+        Assert::same($di[RobotsTxt::class]->toString(), "User-agent: *\nDisallow: /\n");
+    }
+
+    public function aConfiguredRobotsTxtWins(): void
+    {
+        $configured = RobotsTxt::allowAll(['https://example.com/sitemap.xml']);
+        $di = $this->diWith(['rasuvaeff/yii3-seo' => ['robotsTxt' => ['robots' => $configured]]]);
+
+        Assert::same($di[RobotsTxt::class], $configured);
+    }
+
+    public function aNonIndexableSiteIgnoresTheConfiguredRobotsTxt(): void
+    {
+        $di = $this->diWith([
+            'rasuvaeff/yii3-seo' => [
+                'robotsTxt' => ['indexable' => false, 'robots' => RobotsTxt::allowAll()],
+            ],
+        ]);
+
+        Assert::same($di[RobotsTxt::class]->toString(), "User-agent: *\nDisallow: /\n");
     }
 
     public function seoInjectionFallsBackToEmptyDefaultsWhenTheParameterIsUnset(): void
@@ -86,6 +121,18 @@ final class ConfigTest
     private function di(): array
     {
         $params = $this->params();
+
+        return require dirname(__DIR__) . '/config/di.php';
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
+     */
+    private function diWith(array $params): array
+    {
+        $params = array_replace_recursive($this->params(), $params);
 
         return require dirname(__DIR__) . '/config/di.php';
     }

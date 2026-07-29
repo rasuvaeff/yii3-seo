@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\RobotsTxt;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
 use Rasuvaeff\Yii3Seo\SitemapFileExporter;
@@ -10,6 +11,11 @@ use Rasuvaeff\Yii3Seo\SitemapFileExporter;
 /** @var array $params */
 
 $defaults = $params['rasuvaeff/yii3-seo']['defaults'] ?? new MetadataDefaults();
+$robotsTxtParams = $params['rasuvaeff/yii3-seo']['robotsTxt'] ?? [];
+
+$robotsTxt = ($robotsTxtParams['indexable'] ?? true)
+    ? ($robotsTxtParams['robots'] ?? RobotsTxt::allowAll(metadataBase: $defaults->getMetadataBase()))
+    : RobotsTxt::disallowAll();
 
 return [
     SeoInjection::class => [
@@ -29,4 +35,5 @@ return [
             'publicPath' => $params['rasuvaeff/yii3-seo']['sitemap']['publicPath'] ?? '/',
         ],
     ],
+    RobotsTxt::class => $robotsTxt,
 ];

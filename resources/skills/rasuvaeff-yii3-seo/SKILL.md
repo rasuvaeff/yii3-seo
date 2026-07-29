@@ -5,11 +5,12 @@ description: >-
   MetadataDefaults, MetadataResolver, ResolvedMetadata, SeoInjection,
   SeoMetadataEvent, Title templates, Alternates/hreflang, OpenGraph, TwitterCard,
   Robots, JsonLd, SelfCanonical self-canonical URLs, MetadataValidator
-  diagnostics and XML sitemaps (SitemapUrl, Sitemap, SitemapIndex,
-  SitemapProviderInterface, SitemapFileExporter). Use when writing, reviewing or
-  debugging page titles, canonical URLs, Open Graph/Twitter cards, hreflang,
-  robots directives, JSON-LD or sitemap generation in a project that has this
-  package installed.
+  diagnostics, XML sitemaps (SitemapUrl, Sitemap, SitemapIndex,
+  SitemapProviderInterface, SitemapFileExporter) and typed robots.txt
+  (RobotsTxt, RobotsTxtGroup, RobotsTxtAction, X-Robots-Tag). Use when writing,
+  reviewing or debugging page titles, canonical URLs, Open Graph/Twitter cards,
+  hreflang, robots directives, JSON-LD, sitemap generation or crawl policy in a
+  project that has this package installed.
 ---
 
 # rasuvaeff/yii3-seo
@@ -48,7 +49,18 @@ rendered, validated and exported from the same result. Namespace
    psalm suppression. `<title>` and JSON-LD are rendered from the `$seo` layout
    parameter instead.
 
-6. **Never build sitemap XML by hand.** Values go through `XMLWriter`
+6. **Never decide indexability from the environment.** `RobotsTxt::disallowAll()`
+   is served only because the application said `indexable: false`. A sniff that
+   guesses wrong either de-indexes production or leaves staging crawlable —
+   there is no safe default to infer. Same stance as never trusting the request
+   host.
+
+7. **`robots.txt` values are line-injectable.** A user agent or path carrying
+   `\n` would forge a directive; `RobotsTxtGroup` rejects control characters
+   instead of escaping them. Do not relax that check to accept configuration
+   from an untrusted source.
+
+8. **Never build sitemap XML by hand.** Values go through `XMLWriter`
    (`SitemapXmlWriter`), which escapes them; only the fixed document header and
    footer are literals and they carry no input. Sitemap URLs obey rule 2 as
    well — they resolve against `metadataBase`, never the request host.
@@ -112,6 +124,9 @@ package's own ergonomics, **not** Next.js behavior.
 | A tag or schema the package does not model | `MetaTag::name()/property()/httpEquiv()` and `JsonLd::fromArray()` |
 | Publish an XML sitemap | Implement `SitemapProviderInterface` (yield `SitemapUrl`), then `SitemapResponseFactory::create(new Sitemap(...))` from a route, or `SitemapFileExporter::export()` to write files |
 | The site has more URLs than one sitemap file may hold | `SitemapFileExporter` — it splits at 50 000 URLs / 50 MiB and writes the `sitemap.xml` index itself |
+| Serve `robots.txt` | `Route::get('/robots.txt')->action(RobotsTxtAction::class)`; configure the document through the `robotsTxt` parameter |
+| Keep staging out of the index | `robotsTxt.indexable = false` — binds `RobotsTxt::disallowAll()` and ignores the configured document |
+| Mark a PDF/image response noindex | `Robots::noindex()->toHeaderValues()` → one `X-Robots-Tag` header value per entry |
 
 ## Validation and diagnostics
 
@@ -131,6 +146,14 @@ generator from `getUrls()`, not an array. `SitemapFileExporter` writes
 `sitemap.xml` alone when everything fits and `sitemap-1.xml` … `sitemap-N.xml`
 plus a `sitemap.xml` index when it does not; it deletes nothing and never
 invents a `lastmod`. The package never crawls the site.
+
+## robots.txt
+
+`RobotsTxt` holds ordered `RobotsTxtGroup` blocks plus `Sitemap` references
+(resolved against `metadataBase`) and renders with `toString()`. Paths must
+start with `/` or `*`; a group with no rules emits the empty `Disallow:` line.
+`RobotsTxt::class` is bound in the package DI config from the `robotsTxt`
+parameter, so `RobotsTxtAction` needs no wiring beyond the route.
 
 ## Full API
 

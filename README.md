@@ -602,21 +602,110 @@ final class SitemapAction
 It needs a PSR-17 `ResponseFactoryInterface` and `StreamFactoryInterface`, both
 of which a Yii3 application already has in its container.
 
+## robots.txt
+
+`RobotsTxt` is a typed document, not a template: every user agent and path is
+validated, and a value carrying a control character is rejected rather than
+written, so configuration can never forge an extra `Disallow: /` line.
+
+```php
+$robotsTxt = new RobotsTxt(
+    groups: [
+        new RobotsTxtGroup(
+            userAgents: ['*'],
+            allow: ['/admin/public/'],
+            disallow: ['/admin/', '/cart/', '*.json'],
+        ),
+        new RobotsTxtGroup(userAgents: ['AhrefsBot'], disallow: ['/'], crawlDelay: 10),
+    ],
+    sitemaps: ['/sitemap.xml'],
+    metadataBase: 'https://example.com',
+);
+
+echo $robotsTxt->toString();
+```
+
+```
+User-agent: *
+Allow: /admin/public/
+Disallow: /admin/
+Disallow: /cart/
+Disallow: *.json
+
+User-agent: AhrefsBot
+Disallow: /
+Crawl-delay: 10
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+| Rule | Detail |
+|---|---|
+| Paths | Must start with `/` or `*` |
+| Group without rules | Renders the empty `Disallow:` line — the protocol's "nothing is restricted" |
+| Sitemap URLs | Resolved against `metadataBase`, like every other crawler-facing URL |
+| Order | `User-agent`, `Allow`, `Disallow`, `Crawl-delay`; sitemaps last |
+
+### Serving it
+
+`RobotsTxtAction` is a PSR-15 handler; both dependencies come from the
+container, so the route is the whole integration:
+
+```php
+Route::get('/robots.txt')->action(RobotsTxtAction::class);
+```
+
+The document it serves is bound in DI from parameters:
+
+```php
+'rasuvaeff/yii3-seo' => [
+    'robotsTxt' => [
+        'indexable' => $_ENV['APP_ENV'] === 'prod',   // the application decides
+        'robots' => new RobotsTxt(...),               // optional; omit for "allow everything"
+    ],
+],
+```
+
+**The package never inspects the environment.** When `indexable` is `false` the
+bound document is `RobotsTxt::disallowAll()` — every crawler blocked, no sitemap
+advertised — regardless of what `robots` contains. A wrong guess here would
+either de-index production or expose staging, so the decision is always the
+application's, stated explicitly. `RobotsTxtResponseFactory` is available
+directly if a route needs to build the document per request.
+
+### `X-Robots-Tag`
+
+Responses without a `<head>` — generated PDFs, images, exports — carry the same
+policy as a header. `Robots::toHeaderValues()` returns one value per header
+line:
+
+```php
+foreach (Robots::noindex()->withGoogleBot('noindex', 'noimageindex')->toHeaderValues() as $value) {
+    $response = $response->withAddedHeader('X-Robots-Tag', $value);
+}
+```
+
+```
+X-Robots-Tag: noindex
+X-Robots-Tag: googlebot: noindex, noimageindex
+```
+
 ## Security
 
 - Crawler-facing URLs (canonical, hreflang, `og:image`, `og:url`, `twitter:image`, and every sitemap URL) are resolved against `metadataBase`; absolute URLs are validated with `FILTER_VALIDATE_URL`. A relative URL with no base throws `InvalidArgumentException`.
 - HTML escaping is handled by `Yiisoft\Html` — no raw string concatenation.
 - Sitemap XML escaping is handled by `XMLWriter`; only the fixed document header and footer are literals, and they carry no input.
+- `robots.txt` values are rejected when they contain a control character, so configuration cannot forge an extra directive line. Whether a site may be indexed is never guessed from the environment — the application passes it in.
 - JSON-LD uses `JSON_HEX_TAG` to prevent `</script>` injection.
 
 ## Examples
 
 See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
 [`examples/yii3-app.php`](examples/yii3-app.php). Sitemap generation and file
-export: [`examples/sitemap.php`](examples/sitemap.php).
+export: [`examples/sitemap.php`](examples/sitemap.php); crawl policy:
+[`examples/robots-txt.php`](examples/robots-txt.php).
 
-See [ROADMAP.md](ROADMAP.md) for planned `robots.txt` support and curated
-structured-data builders.
+See [ROADMAP.md](ROADMAP.md) for planned curated structured-data builders.
 
 ## Development
 

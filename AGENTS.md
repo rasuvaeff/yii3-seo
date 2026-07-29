@@ -25,7 +25,8 @@ Public API (`@api`): `Metadata`, `MetadataDefaults`, `MetadataResolver`,
 `SetSeoMetadataEventHandler`, `Sitemap`, `SitemapIndex`, `SitemapUrl`,
 `SitemapImage`, `SitemapIndexEntry`, `SitemapLimits`, `ChangeFrequency`,
 `SitemapDocumentInterface`, `SitemapProviderInterface`, `SitemapFileExporter`,
-`SitemapResponseFactory`. Internal (`@internal`): `UrlResolver`,
+`SitemapResponseFactory`, `RobotsTxt`, `RobotsTxtGroup`, `RobotsTxtAction`,
+`RobotsTxtResponseFactory`. Internal (`@internal`): `UrlResolver`,
 `SitemapXmlWriter`, `HreflangLocale`.
 
 ## Golden rules
@@ -129,6 +130,18 @@ inside the `composer:2` container because the base image has no coverage driver.
   package root: a mutant drops the target directory from the export path. Both
   are gitignored — do not commit them, and do not "fix" them by weakening the
   exporter tests.
+- **`Robots` and `RobotsTxt` are different things.** `Robots` is the per-page
+  meta policy (`<meta name="robots">`, and via `toHeaderValues()` the
+  `X-Robots-Tag` header). `RobotsTxt` is the site-wide file. Do not conflate
+  them in naming, docs or tests.
+- **Indexability is never inferred.** `config/di.php` binds
+  `RobotsTxt::disallowAll()` only because the application set
+  `robotsTxt.indexable` to false. Never add `getenv()`/`YII_ENV` sniffing: a
+  wrong guess de-indexes production or exposes staging.
+- **`robots.txt` values are line-injectable.** `RobotsTxtGroup` rejects control
+  characters in user agents and paths rather than escaping them — a `\n` in a
+  crawler name would otherwise forge a `Disallow: /` line. Paths must start with
+  `/` or `*`.
 - `SeoInjection::getMetaTags()` returns `list<Yiisoft\Html\Tag\Meta>`; `getLinkTags()` returns `array<array-key, Yiisoft\Html\Tag\Link>` with `'canonical'`/`'manifest'` keys.
 - `SeoInjection` implements layout/meta/link injection. The layout receives it
   as `$seo`; `<title>` and JSON-LD use `$seo->getTitle()` and

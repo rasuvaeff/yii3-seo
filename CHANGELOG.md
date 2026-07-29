@@ -19,6 +19,17 @@
   `sitemap` → `publicPath` parameter prefixes the index entries.
 - Add `SitemapResponseFactory`, which serves a sitemap document as a PSR-7
   response through a `php://temp` stream.
+- Add a typed `robots.txt`: `RobotsTxt` with ordered `RobotsTxtGroup` blocks
+  (`User-agent`, `Allow`, `Disallow`, `Crawl-delay`) and `Sitemap` references
+  resolved against `metadataBase`. User agents and paths carrying a control
+  character are rejected, so configuration cannot forge an extra directive line.
+- Add `RobotsTxtAction` (a PSR-15 handler ready for a `/robots.txt` route) and
+  `RobotsTxtResponseFactory`. `RobotsTxt::class` is bound in the package DI
+  config from the new `rasuvaeff/yii3-seo` → `robotsTxt` parameter: setting
+  `indexable` to `false` serves `RobotsTxt::disallowAll()` and advertises no
+  sitemap. The package never inspects the environment itself.
+- Add `Robots::toHeaderValues()`, which serializes a page policy as
+  `X-Robots-Tag` header values for responses that have no `<head>`.
 - Require `ext-xmlwriter` and `psr/http-factory`.
 
 ## 1.1.0 — 2026-07-29

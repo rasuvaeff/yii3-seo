@@ -607,6 +607,94 @@ final class SitemapAction
 Нужны PSR-17 `ResponseFactoryInterface` и `StreamFactoryInterface` — оба уже
 есть в контейнере Yii3-приложения.
 
+## robots.txt
+
+`RobotsTxt` — типизированный документ, а не шаблон: каждый user agent и путь
+валидируются, а значение с управляющим символом отклоняется, а не пишется в
+файл, — поэтому конфигурация не может подделать лишнюю строку `Disallow: /`.
+
+```php
+$robotsTxt = new RobotsTxt(
+    groups: [
+        new RobotsTxtGroup(
+            userAgents: ['*'],
+            allow: ['/admin/public/'],
+            disallow: ['/admin/', '/cart/', '*.json'],
+        ),
+        new RobotsTxtGroup(userAgents: ['AhrefsBot'], disallow: ['/'], crawlDelay: 10),
+    ],
+    sitemaps: ['/sitemap.xml'],
+    metadataBase: 'https://example.com',
+);
+
+echo $robotsTxt->toString();
+```
+
+```
+User-agent: *
+Allow: /admin/public/
+Disallow: /admin/
+Disallow: /cart/
+Disallow: *.json
+
+User-agent: AhrefsBot
+Disallow: /
+Crawl-delay: 10
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+| Правило | Детали |
+|---|---|
+| Пути | Должны начинаться с `/` или `*` |
+| Группа без правил | Рендерит пустую строку `Disallow:` — протокольное «ограничений нет» |
+| URL-ы карт сайта | Резолвятся против `metadataBase`, как и любой другой URL для краулеров |
+| Порядок | `User-agent`, `Allow`, `Disallow`, `Crawl-delay`; sitemap-ы последними |
+
+### Как отдавать
+
+`RobotsTxtAction` — PSR-15 handler; обе зависимости приходят из контейнера,
+поэтому вся интеграция — это маршрут:
+
+```php
+Route::get('/robots.txt')->action(RobotsTxtAction::class);
+```
+
+Отдаваемый документ биндится в DI из параметров:
+
+```php
+'rasuvaeff/yii3-seo' => [
+    'robotsTxt' => [
+        'indexable' => $_ENV['APP_ENV'] === 'prod',   // решает приложение
+        'robots' => new RobotsTxt(...),               // опционально; без него — «разрешено всё»
+    ],
+],
+```
+
+**Пакет никогда не смотрит на окружение сам.** При `indexable: false`
+биндится `RobotsTxt::disallowAll()` — все краулеры заблокированы, карта сайта
+не анонсируется, — независимо от содержимого `robots`. Ошибка здесь либо
+выбросит прод из индекса, либо откроет staging, поэтому решение всегда за
+приложением и всегда явное. `RobotsTxtResponseFactory` доступен напрямую, если
+маршруту нужно собирать документ на каждый запрос.
+
+### `X-Robots-Tag`
+
+Ответы без `<head>` — сгенерированные PDF, изображения, выгрузки — несут ту же
+политику в заголовке. `Robots::toHeaderValues()` возвращает по значению на
+строку заголовка:
+
+```php
+foreach (Robots::noindex()->withGoogleBot('noindex', 'noimageindex')->toHeaderValues() as $value) {
+    $response = $response->withAddedHeader('X-Robots-Tag', $value);
+}
+```
+
+```
+X-Robots-Tag: noindex
+X-Robots-Tag: googlebot: noindex, noimageindex
+```
+
 ## Безопасность
 
 - URL-ы для краулеров (canonical, hreflang, `og:image`, `og:url`,
@@ -616,16 +704,20 @@ final class SitemapAction
 - HTML-экранирование выполняется `Yiisoft\Html` — без конкатенации сырых строк.
 - XML-экранирование карты сайта выполняет `XMLWriter`; литералами остаются
   только фиксированные заголовок и футер документа, данных они не содержат.
+- Значения `robots.txt` отклоняются, если содержат управляющий символ, — так
+  конфигурация не может подделать лишнюю директиву. Индексируем ли сайт,
+  никогда не угадывается по окружению: это передаёт приложение.
 - JSON-LD использует `JSON_HEX_TAG` для защиты от инъекции `</script>`.
 
 ## Примеры
 
 См. [`examples/`](examples/) — запускаемые скрипты и эскиз Yii3-интеграции:
 [`examples/yii3-app.php`](examples/yii3-app.php). Генерация карты сайта и
-экспорт в файлы: [`examples/sitemap.php`](examples/sitemap.php).
+экспорт в файлы: [`examples/sitemap.php`](examples/sitemap.php); политика
+обхода: [`examples/robots-txt.php`](examples/robots-txt.php).
 
-План поддержки `robots.txt` и типизированных structured-data builders
-находится в [ROADMAP.md](ROADMAP.md).
+План типизированных structured-data builders находится в
+[ROADMAP.md](ROADMAP.md).
 
 ## Разработка
 

@@ -116,6 +116,18 @@ final class RobotsTest
         }
     }
 
+    public function serialisesToASingleXRobotsTagValue(): void
+    {
+        Assert::same(Robots::none()->toHeaderValues(), ['noindex, nofollow']);
+    }
+
+    public function serialisesBotSpecificDirectivesAsASecondValue(): void
+    {
+        $robots = Robots::index()->withGoogleBot('noindex', 'nofollow');
+
+        Assert::same($robots->toHeaderValues(), ['index, follow', 'googlebot: noindex, nofollow']);
+    }
+
     /** @return iterable<string, array{string}> */
     public static function validMaxDirectiveProvider(): iterable
     {

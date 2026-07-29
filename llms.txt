@@ -22,6 +22,7 @@ composer require rasuvaeff/yii3-seo
 - `MetadataResolver::resolve()` is the single source of merge/fallback behavior and returns immutable `ResolvedMetadata`. Relative crawler-facing URLs are resolved later by the rendering adapter.
 - `<title>` and JSON-LD are NOT registered by the meta/link interfaces — render them from the automatically injected `$seo` layout parameter via `getTitle()` and `getJsonLdHtml()`. Do NOT listen to `Yiisoft\View\Event\WebView\PageBegin` to avoid it: `WebViewEvent::getView()` is `@internal` to Yiisoft.
 - Config groups shipped: `di`, `params`, `events-web`. The `SeoMetadataEvent` → `SetSeoMetadataEventHandler` listener is registered automatically — do NOT repeat it in the application. `HttpApplicationRunner` reads `events-web` with `RecursiveMerge`, so package listeners merge with the application's instead of colliding.
+- `robots.txt` is typed (`RobotsTxt` + `RobotsTxtGroup`), served by `RobotsTxtAction`. Values containing a control character are rejected, so configuration cannot forge a directive line. The package NEVER sniffs the environment to decide indexability — the application passes `indexable`.
 - Sitemaps are a separate, head-independent surface: `SitemapUrl` + `SitemapProviderInterface` in, `Sitemap`/`SitemapIndex` chunks out. Every sitemap URL is resolved against the same `metadataBase`; XML escaping is `XMLWriter`'s job, never string concatenation.
 - All URL/identifier validation throws `InvalidArgumentException` (message without trailing period).
 
@@ -266,3 +267,42 @@ Rules:
 - A document built from a `Generator` renders once; pass an array to re-render.
 - `SitemapFileExporter` is in the package DI config and inherits `metadataBase` from `MetadataDefaults`; `publicPath` comes from `rasuvaeff/yii3-seo` → `sitemap` → `publicPath` and prefixes the index entries.
 - `lastmod` is a `DateTimeImmutable` rendered in W3C datetime (`DateTimeInterface::ATOM`). The exporter never stamps a timestamp itself — pass one to `export()` if the index needs `lastmod`.
+
+### robots.txt and crawl policy
+
+```php
+use Rasuvaeff\Yii3Seo\{Robots, RobotsTxt, RobotsTxtAction, RobotsTxtGroup, RobotsTxtResponseFactory};
+
+$robotsTxt = new RobotsTxt(
+    groups: [
+        new RobotsTxtGroup(userAgents: ['*'], allow: ['/admin/public/'], disallow: ['/admin/', '*.json']),
+        new RobotsTxtGroup(userAgents: ['AhrefsBot'], disallow: ['/'], crawlDelay: 10),
+    ],
+    sitemaps: ['/sitemap.xml'],          // resolved against metadataBase
+    metadataBase: 'https://example.com',
+);
+
+echo $robotsTxt->toString();
+```
+
+```
+User-agent: *
+Allow: /admin/public/
+Disallow: /admin/
+Disallow: *.json
+
+User-agent: AhrefsBot
+Disallow: /
+Crawl-delay: 10
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+Rules:
+
+- Paths must start with `/` or `*`; user agents and paths must not contain control characters (line-injection guard). Both throw `InvalidArgumentException`.
+- A group with no `allow`/`disallow` renders the empty `Disallow:` line. Line order is `User-agent`, `Allow`, `Disallow`, `Crawl-delay`; sitemaps form the last block.
+- `RobotsTxt::allowAll(array $sitemaps = [], ?string $metadataBase = null)` / `RobotsTxt::disallowAll()` (blocks everything and advertises no sitemap).
+- Routing: `Route::get('/robots.txt')->action(RobotsTxtAction::class)`. `RobotsTxt::class` is bound in the package DI from `rasuvaeff/yii3-seo` → `robotsTxt` → `indexable` (bool) and `robots` (a `RobotsTxt` or null). `indexable: false` binds `disallowAll()` and ignores `robots`.
+- **Never derive `indexable` inside the package.** Environment sniffing that guesses wrong either de-indexes production or exposes staging.
+- `Robots::toHeaderValues(): non-empty-list<string>` serializes a page policy for `X-Robots-Tag` on non-HTML responses: `['noindex', 'googlebot: noindex, noimageindex']`, one value per header line.

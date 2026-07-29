@@ -116,6 +116,26 @@ final class Robots
         return $this->googleBot;
     }
 
+    /**
+     * The same policy as `X-Robots-Tag` header values, for responses that carry
+     * no `<head>` — PDFs, images, generated exports.
+     *
+     * Returns one value per header line: the general directives first, then the
+     * `googlebot:`-prefixed line when bot-specific directives are configured.
+     *
+     * @return non-empty-list<string>
+     */
+    public function toHeaderValues(): array
+    {
+        $values = [implode(', ', $this->directives)];
+
+        if ($this->googleBot !== []) {
+            $values[] = 'googlebot: ' . implode(', ', $this->googleBot);
+        }
+
+        return $values;
+    }
+
     private function appendDirective(string $directive): self
     {
         $clone = clone $this;
