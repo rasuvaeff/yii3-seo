@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-07-29
 
 - Ship an agent skill (`resources/skills/rasuvaeff-yii3-seo/SKILL.md`) declared
   through `extra.skills`, so projects using the `llm/skills` Composer plugin get
