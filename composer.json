@@ -1,6 +1,6 @@
 {
     "name": "rasuvaeff/yii3-seo",
-    "description": "Next.js-style typed SEO metadata for Yii3: title templates, OpenGraph, Twitter cards, hreflang, canonical URL, robots directives and JSON-LD",
+    "description": "Next.js-inspired, Yii3-native typed SEO metadata: title templates, OpenGraph, Twitter cards, hreflang, canonical URLs, robots and JSON-LD",
     "license": "BSD-3-Clause",
     "type": "library",
     "keywords": [
@@ -27,6 +27,10 @@
     "require": {
         "php": "8.3 - 8.5",
         "ext-filter": "*",
+        "ext-mbstring": "*",
+        "psr/http-message": "^1.1 || ^2.0",
+        "psr/http-server-handler": "^1.0",
+        "psr/http-server-middleware": "^1.0",
         "yiisoft/html": "^3.13 || ^4.0",
         "yiisoft/yii-view-renderer": "^7.4"
     },
@@ -68,10 +72,14 @@
     "extra": {
         "config-plugin": {
             "di": "di.php",
+            "events-web": "events-web.php",
             "params": "params.php"
         },
         "config-plugin-options": {
             "source-directory": "config"
+        },
+        "skills": {
+            "source": "resources/skills"
         }
     },
     "scripts": {

@@ -16,9 +16,6 @@ use InvalidArgumentException;
  */
 final readonly class OpenGraph
 {
-    /** @var list<OgImage> */
-    private array $images;
-
     /** @param list<OgImage> $images */
     public function __construct(
         private ?string $title = null,
@@ -27,7 +24,7 @@ final readonly class OpenGraph
         private ?string $url = null,
         private ?string $siteName = null,
         private ?string $locale = null,
-        array $images = [],
+        private array $images = [],
     ) {
         if ($type === '') {
             throw new InvalidArgumentException('OpenGraph type must not be empty');
@@ -36,8 +33,6 @@ final readonly class OpenGraph
         if ($url === '') {
             throw new InvalidArgumentException('OpenGraph URL must not be empty');
         }
-
-        $this->images = $images;
     }
 
     public function getTitle(): ?string

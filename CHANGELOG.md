@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.1.0 — 2026-07-29
+
+- Ship an agent skill (`resources/skills/rasuvaeff-yii3-seo/SKILL.md`) declared
+  through `extra.skills`, so projects using the `llm/skills` Composer plugin get
+  it synced into `.agents/skills/` on install.
+- Add byte-exact `<head>` snapshots for a minimal page, an article, a product
+  and a multilingual page to the Integration suite.
+- Register the `SeoMetadataEvent` handler automatically: the package now ships an
+  `events-web` configuration group, so applications no longer wire
+  `SetSeoMetadataEventHandler` themselves.
+- Add `JsonLd::toJson()` for embedding a block in an existing `<script>` element.
+- Add an opt-in self-canonical strategy: `SelfCanonical` (site-wide policy on
+  `MetadataDefaults`) plus `SelfCanonicalMiddleware`, which records the current
+  request path. Pages that do not declare `Alternates::canonical` get a canonical
+  URL derived from `metadataBase` and the request path. The request authority is
+  never used, query parameters are dropped unless allow-listed, allow-listed
+  parameters are emitted in the configured order, and explicit canonical values
+  stay authoritative.
+- `SeoInjection` now resolves lazily and caches the result until `setMetadata()`,
+  `setRequestPath()` or `clear()`/`reset()` is called; `clear()` drops the request
+  path as well so nothing leaks between requests in a reusable runtime.
+- Add `ResolvedMetadata::toArray()`: a normalized array export of the resolved
+  metadata for JSON APIs, SPA payloads, preview tooling and debugging. It
+  resolves crawler-facing URLs against `metadataBase` exactly as rendering does,
+  keeps icon/manifest URLs as configured, and omits nulls and empty collections.
+- Add `MetadataValidator` with `MetadataValidationResult`, `MetadataIssue` and
+  `MetadataIssueSeverity`: typed SEO diagnostics for missing title, description,
+  canonical and social image; missing image alt/dimensions; unresolvable
+  crawler-facing URLs; canonical/`og:url` mismatch; conflicting robots
+  directives and duplicate custom meta tags. Suggested title and description
+  lengths are advisory warnings. The validator never throws.
+- Require `ext-mbstring` for character-accurate title and description length
+  diagnostics.
+- Add `MetadataResolver` and immutable `ResolvedMetadata` as the public,
+  renderer-independent result of defaults merging, title templates and social
+  fallback rules; expose it through `SeoInjection::getResolvedMetadata()`.
+- Refactor `SeoInjection` into a Yii/HTML adapter over the shared resolved
+  result without changing rendered metadata.
+- Position the package accurately as Next.js-inspired and Yii3-native, with its
+  field-level social merge differences documented.
+- Expose `SeoInjection` to Yii layouts as the `$seo` parameter through
+  `LayoutParametersInjectionInterface`, removing the need to inject it into the
+  layout separately.
+- Run the full-head Integration suite in the build workflow on the supported
+  PHP matrix and prefer-lowest dependencies.
+- Add a prioritized product roadmap for frictionless metadata, crawlability and
+  rich-result support.
+- Align the existing source with the current Rector rules so `release-check`
+  remains green.
+
 ## 1.0.3 — 2026-07-25
 
 - Reject trailing newlines in hreflang/robots directive validation: anchor
@@ -39,4 +89,3 @@ Next.js-style declarative SEO metadata for Yii3.
 - `SeoMetadataEvent` + `SetSeoMetadataEventHandler` — event-based pattern for setting metadata from actions.
 - `MetaTag` — typed custom `name`, `property`, `http-equiv` meta tags.
 - `JsonLd` — `<script type="application/ld+json">` with `JSON_HEX_TAG` injection prevention.
-

@@ -1,7 +1,8 @@
 # yii3-seo
 
-Next.js-style typed SEO metadata for Yii3. One declarative `Metadata` object per
-page; site-wide `MetadataDefaults` merged in. Namespace: `Rasuvaeff\Yii3Seo`.
+Next.js-inspired, Yii3-native typed SEO metadata. One declarative `Metadata`
+object per page; site-wide `MetadataDefaults` merged in. Namespace:
+`Rasuvaeff\Yii3Seo`.
 
 ## Install
 
@@ -11,14 +12,16 @@ composer require rasuvaeff/yii3-seo
 
 ## Rules
 
-- `SeoInjection` implements `MetaTagsInjectionInterface` + `LinkTagsInjectionInterface` — register it in `WebViewRenderer::injections`. Package DI also adds a service reset hook so request-local metadata does not leak in reusable runtimes.
+- `SeoInjection` implements `LayoutParametersInjectionInterface` + `MetaTagsInjectionInterface` + `LinkTagsInjectionInterface` — register it in `WebViewRenderer::injections`. It is then available to layouts as `$seo`. Package DI also adds a service reset hook so request-local metadata does not leak in reusable runtimes.
 - Call `setMetadata(Metadata)` per request (via `SeoMetadataEvent` from an action) before the renderer fires.
 - `MetadataDefaults` is provided via the `rasuvaeff/yii3-seo` → `defaults` DI parameter; it is merged with the page `Metadata`.
 - Title resolution: page `Title::of('X')` + defaults `Title::template('%s | Acme', default: 'Acme')` → `X | Acme`. `Title::absolute('X')` bypasses the template. No page title → defaults `default`.
 - `metadataBase` (in defaults) resolves relative crawler-facing URLs: canonical, hreflang, `og:url`, `og:image`, `twitter:image`. Relative URL without base throws `InvalidArgumentException`. Icons/manifest are emitted as-is (browser-resolved).
 - Fallback cascade (on by default): `og:title`/`og:description` ← page title/description; `twitter:title`/`description`/`image` ← OpenGraph. Explicit values win.
-- Field merge: `openGraph`/`twitter` inherit unset fields from defaults; `applicationName`/`generator`/`themeColor`/`colorScheme`/`robots`/`icons`/`verification` are page-or-default; `jsonLd`/`other` concatenate defaults + page; `keywords`/`authors`/`creator`/`publisher`/`alternates`/`manifest` are page-only.
-- `<title>` and JSON-LD are NOT injected — render via `getTitle()` and `getJsonLdHtml()` in layout.
+- Field merge: `openGraph`/`twitter` inherit unset fields from defaults; `applicationName`/`generator`/`themeColor`/`colorScheme`/`robots`/`icons`/`verification` are page-or-default; `jsonLd`/`other` concatenate defaults + page; `keywords`/`authors`/`creator`/`publisher`/`manifest` are page-only; `alternates` is page-only too, except that a configured `selfCanonical` fills in a missing canonical from the request path while keeping the page's hreflang `languages`.
+- `MetadataResolver::resolve()` is the single source of merge/fallback behavior and returns immutable `ResolvedMetadata`. Relative crawler-facing URLs are resolved later by the rendering adapter.
+- `<title>` and JSON-LD are NOT registered by the meta/link interfaces — render them from the automatically injected `$seo` layout parameter via `getTitle()` and `getJsonLdHtml()`. Do NOT listen to `Yiisoft\View\Event\WebView\PageBegin` to avoid it: `WebViewEvent::getView()` is `@internal` to Yiisoft.
+- Config groups shipped: `di`, `params`, `events-web`. The `SeoMetadataEvent` → `SetSeoMetadataEventHandler` listener is registered automatically — do NOT repeat it in the application. `HttpApplicationRunner` reads `events-web` with `RecursiveMerge`, so package listeners merge with the application's instead of colliding.
 - All URL/identifier validation throws `InvalidArgumentException` (message without trailing period).
 
 ## API
@@ -60,8 +63,30 @@ new MetadataDefaults(
     openGraph: new OpenGraph(siteName: 'Acme', locale: 'en_US'),
     twitter: new TwitterCard(card: 'summary_large_image', site: '@acme'),
     icons: null, verification: null, jsonLd: [], other: [],
+    selfCanonical: null,                     // SelfCanonical policy; requires metadataBase
 )
 ```
+
+### SelfCanonical / SelfCanonicalMiddleware (opt-in self-canonical URLs)
+
+```php
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
+
+SelfCanonical::enabled()                      // path only, every query parameter dropped
+SelfCanonical::keepingQuery('page', 'sort')   // keep an allow-list, in the listed order
+new SelfCanonical(['page'])
+
+// config/common/params.php: add SelfCanonicalMiddleware::class to 'middlewares'
+// It records the request path via SeoInjection::setRequestPath().
+```
+
+Rules: authority (scheme/host/port) is never read — canonical URLs are anchored
+to `metadataBase`; allow-list order beats request order so the canonical URL is
+stable; array-valued parameters (`?tag[]=a`) are always dropped; an explicit
+`Alternates::canonical` wins and page hreflang `languages` are preserved;
+`MetadataDefaults` throws when `selfCanonical` is set without `metadataBase`;
+without the middleware no request path is recorded and nothing happens.
 
 ### Title
 
@@ -98,7 +123,8 @@ new Icons(icon: '/favicon.ico', shortcut: '/favicon.ico', apple: '/apple.png', o
 new Verification(google: 'g', yandex: 'y', bing: 'b', other: ['me' => 'm'])
 new Author(name: 'Alice', url: 'https://example.com/alice')
 MetaTag::name('rating', 'general'); MetaTag::property('fb:app_id', '123'); MetaTag::httpEquiv('x-ua-compatible', 'IE=edge');
-JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage'])
+JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage'])->toJson()   // JSON_HEX_TAG encoded
+JsonLd::fromArray([...])->toHtml()   // full <script type="application/ld+json"> element
 ```
 
 ### SeoInjection
@@ -106,16 +132,67 @@ JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage'])
 ```php
 $injection->setMetadata(Metadata $m): void
 $injection->clear(): void
+$injection->getLayoutParameters(): array // ['seo' => $injection]
+$injection->getResolvedMetadata(): ResolvedMetadata
 $injection->getTitle(): string          // resolved <title> for layout
 $injection->getMetaTags(): list<Meta>   // auto-injected by WebViewRenderer
 $injection->getLinkTags(): array<Link>  // auto-injected by WebViewRenderer
 $injection->getJsonLdHtml(): string     // render in layout manually
+$injection->setRequestPath(?string)     // self-canonical input; SelfCanonicalMiddleware calls it
+$injection->clear() / reset()           // drops metadata AND request path (reusable runtimes)
 ```
 
-### Event wiring
+Resolution is lazy and cached: `getResolvedMetadata()` resolves once and returns
+the same instance until `setMetadata()`, `setRequestPath()` or `clear()` is called.
+
+### MetadataResolver / ResolvedMetadata
 
 ```php
-// config/common/events.php
+$resolved = (new MetadataResolver())->resolve(
+    metadata: new Metadata(title: 'Page'),
+    defaults: new MetadataDefaults(title: Title::template('%s | Brand')),
+);
+$resolved->getTitle();      // Page | Brand
+$resolved->getOpenGraph();  // field-level merged + title/description fallback
+$resolved->getTwitter();    // field-level merged + OpenGraph fallback
+$resolved->toArray();       // normalized array for APIs/SPA/preview/debugging
+```
+
+`toArray()` resolves canonical, hreflang, `og:url` and image URLs against
+`metadataBase` (throws `InvalidArgumentException` on a relative URL without a
+base), keeps icon/manifest URLs as configured, omits nulls and empty
+collections, and always includes `title`.
+
+### MetadataValidator / MetadataValidationResult / MetadataIssue
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataValidator;
+
+$result = (new MetadataValidator())->validate($resolved);
+$result->isValid();      // true when no errors; warnings are advisory
+$result->hasErrors();
+$result->hasIssues();
+$result->getIssues();    // list<MetadataIssue>
+$result->getErrors();
+$result->getWarnings();
+
+$issue->getSeverity();   // MetadataIssueSeverity::Error | ::Warning
+$issue->getCode();       // e.g. 'title.missing'
+$issue->getMessage();
+$issue->isError();
+```
+
+Never throws. Codes: `title.missing` (error), `title.too_long`,
+`description.missing`, `description.too_short`, `description.too_long`,
+`canonical.missing`, `canonical.og_url_mismatch` (error), `url.unresolvable`
+(error), `image.missing`, `image.alt_missing`, `image.dimensions_missing`,
+`robots.conflicting` (error), `other.duplicate`. Everything not marked as error
+is a warning. Title/description lengths are advisory (60 / 50-160 characters).
+
+### Event wiring (automatic; shown for reference)
+
+```php
+// Shipped as config/events-web.php and merged by yiisoft/config — do NOT repeat it.
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
 
@@ -141,6 +218,7 @@ WebViewRenderer::class => [
 ### Layout
 
 ```php
-<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
-<?= $seoInjection->getJsonLdHtml() ?>
+<?php use Yiisoft\Html\Html; ?>
+<title><?= Html::encode($seo->getTitle()) ?></title>
+<?= $seo->getJsonLdHtml() ?>
 ```

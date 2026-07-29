@@ -11,20 +11,26 @@
 [![License](https://img.shields.io/packagist/l/rasuvaeff/yii3-seo.svg)](LICENSE.md)
 [English version](README.md)
 
-Типизированные SEO-метаданные в стиле Next.js для Yii3. Опишите страницу одним
-декларативным объектом `Metadata` — шаблоны title, OpenGraph, Twitter cards,
-hreflang, canonical URL, robots-директивы, иконки, verification и JSON-LD — а
-единственный инстанс `MetadataDefaults` предоставит значения для всего сайта.
-Теги попадают в `<head>` автоматически через `WebViewRenderer`.
+Типизированные SEO-метаданные, вдохновлённые Next.js и нативные для Yii3.
+Опишите страницу одним декларативным объектом `Metadata` — шаблоны title,
+OpenGraph, Twitter cards, hreflang, canonical URL, robots-директивы, иконки,
+verification и JSON-LD — а единственный инстанс `MetadataDefaults` предоставит
+значения для всего сайта. Теги попадают в `<head>` автоматически через
+`WebViewRenderer`.
 
 > Используете AI-ассистента? В [llms.txt](llms.txt) — компактный API-справочник,
 > готовый к вставке в контекст.
+> Проекты с Composer-плагином [llm/skills](https://github.com/roxblnfk/skills)
+> дополнительно получают agent-скилл этого пакета в `.agents/skills/`
+> автоматически при установке.
 
 ## Требования
 
-- PHP 8.3+
-- `yiisoft/html` ^3.13
+- PHP 8.3+, `ext-filter`, `ext-mbstring`
+- `yiisoft/html` ^3.13 || ^4.0
+- `yiisoft/view` ^12.0
 - `yiisoft/yii-view-renderer` ^7.4
+- `psr/http-message`, `psr/http-server-handler`, `psr/http-server-middleware` (middleware для self-canonical)
 
 ## Установка
 
@@ -34,7 +40,7 @@ composer require rasuvaeff/yii3-seo
 
 ## Концепция
 
-API повторяет Next.js Metadata API:
+API переносит декларативный стиль Next.js Metadata API в Yii3:
 
 | Next.js | yii3-seo |
 |---|---|
@@ -49,14 +55,22 @@ Defaults мержатся с метаданными страницы: шабло
 страницы, OpenGraph/Twitter наследуют незаданные поля, а относительные URL-ы
 резолвятся против `metadataBase`.
 
-## Использование
+В отличие от Next.js, вложенные значения OpenGraph/Twitter мержатся по полям,
+а fallback-и social title, description и image включены по умолчанию. Эти
+нативные для Yii3 правила уменьшают дублирование; явные значения страницы
+всегда имеют приоритет.
 
-### 1. Defaults для всего сайта (params)
+## Быстрый старт
+
+Две правки конфигурации, один dispatch и две строки в layout-е.
+
+**1. Defaults для всего сайта** — `config/common/params.php`
 
 ```php
-// config/common/params.php
 use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\OpenGraph;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
 use Rasuvaeff\Yii3Seo\Title;
 use Rasuvaeff\Yii3Seo\TwitterCard;
 
@@ -67,15 +81,20 @@ return [
             title: Title::template('%s | My Store', default: 'My Store'),
             openGraph: new OpenGraph(siteName: 'My Store', locale: 'en_US'),
             twitter: new TwitterCard(card: 'summary_large_image', site: '@mystore'),
+            selfCanonical: SelfCanonical::enabled(),   // опционально
         ),
+    ],
+
+    'middlewares' => [
+        SelfCanonicalMiddleware::class,               // только для selfCanonical
+        // ... роутер и остальной стек
     ],
 ];
 ```
 
-### 2. Зарегистрируйте `SeoInjection` в DI-конфиге view
+**2. Добавьте injection в view renderer** — `config/common/di.php`
 
 ```php
-// config/common/di.php
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Yiisoft\Yii\View\Renderer\CsrfViewInjection;
 use Yiisoft\Yii\View\Renderer\WebViewRenderer;
@@ -92,23 +111,10 @@ return [
 ];
 ```
 
-### 3. Подключите event handler
-
-```php
-// config/common/events.php
-use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
-use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
-
-return [
-    SeoMetadataEvent::class => [[SetSeoMetadataEventHandler::class, '__invoke']],
-];
-```
-
-### 4. Диспатчьте `SeoMetadataEvent` из action-а
+**3. Опишите страницу** — в action-е
 
 ```php
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Rasuvaeff\Yii3Seo\Alternates;
 use Rasuvaeff\Yii3Seo\Metadata;
 use Rasuvaeff\Yii3Seo\OgImage;
 use Rasuvaeff\Yii3Seo\OpenGraph;
@@ -127,14 +133,6 @@ final readonly class ProductAction
             metadata: new Metadata(
                 title: 'Awesome Product',                 // -> "Awesome Product | My Store"
                 description: 'Buy the awesome product.',
-                alternates: new Alternates(
-                    canonical: '/products/awesome',        // resolved against metadataBase
-                    languages: [
-                        'en'        => '/en/products/awesome',
-                        'ru'        => '/ru/products/awesome',
-                        'x-default' => '/products/awesome',
-                    ],
-                ),
                 openGraph: new OpenGraph(
                     type: 'product',
                     images: [new OgImage(url: '/og/awesome.jpg', width: 1200, height: 630, alt: 'Awesome')],
@@ -147,18 +145,63 @@ final readonly class ProductAction
 }
 ```
 
-`og:title`/`og:description` фолбэчатся на title/description страницы, а
-`twitter:*` — на OpenGraph: дублировать их не нужно.
+Это вся интеграция. Запрос `https://example.com/products/awesome?utm_source=mail`
+отрендерит:
 
-### 5. Title и JSON-LD в layout-е
+```html
+<title>Awesome Product | My Store</title>
+<meta name="description" content="Buy the awesome product.">
+<meta property="og:title" content="Awesome Product | My Store">
+<meta property="og:type" content="product">
+<meta property="og:description" content="Buy the awesome product.">
+<meta property="og:site_name" content="My Store">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://example.com/og/awesome.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Awesome">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@mystore">
+<meta name="twitter:title" content="Awesome Product | My Store">
+<meta name="twitter:description" content="Buy the awesome product.">
+<meta name="twitter:image" content="https://example.com/og/awesome.jpg">
+<link rel="canonical" href="https://example.com/products/awesome">
+```
 
-`<title>` и `<script type="application/ld+json">` не покрыты injection
-интерфейсами. Инжектируйте `SeoInjection` в layout и рендерите вручную:
+`og:title`/`og:description` взялись из title и description страницы,
+`twitter:*` — из OpenGraph, canonical — из пути запроса с выброшенным
+tracking-параметром, а layout-у осталось только вывести `<title>` и блок JSON-LD
+(шаг 4).
+
+### Что пакет подключает сам
+
+| Элемент | Механизм |
+|---|---|
+| Meta- и link-теги | `SeoInjection` через injection-интерфейсы `WebViewRenderer` (шаг 2) |
+| Обработчик `SeoMetadataEvent` | `config/events-web.php`, авторегистрация через `yiisoft/config` — в приложении ничего писать не нужно |
+| Параметр layout-а `$seo` | `LayoutParametersInjectionInterface`, объект в layout инжектить не нужно |
+| Сброс между запросами | `config/di.php` вызывает `SeoInjection::reset()`, поэтому ничего не утекает в RoadRunner и подобных рантаймах |
+
+`HttpApplicationRunner` читает группу `events-web` с `RecursiveMerge`, поэтому
+эти слушатели складываются со слушателями приложения и других пакетов на то же
+событие, а не конфликтуют.
+
+**Апгрейд с 1.0.x:** уберите запись `SeoMetadataEvent` из собственного
+`config/common/events-web.php` приложения. Слушатели складываются, а не
+дедуплицируются, поэтому обработчик будет вызываться дважды на dispatch.
+Сегодня это безвредно — `setMetadata()` пересчитывает тот же вход — но это
+мёртвая конфигурация.
+
+**4. Выведите title и JSON-LD** — в layout-е
+
+У `WebViewRenderer` есть injection-интерфейсы только для meta- и link-тегов,
+поэтому эти два элемента рендерятся из автоматически инжектируемого `$seo`:
 
 ```php
 <!-- layout.php -->
-<title><?= htmlspecialchars($seoInjection->getTitle(), ENT_QUOTES) ?></title>
-<?= $seoInjection->getJsonLdHtml() ?>
+<?php use Yiisoft\Html\Html; ?>
+<title><?= Html::encode($seo->getTitle()) ?></title>
+<?= $seo->getJsonLdHtml() ?>
 ```
 
 ## Публичный API
@@ -193,6 +236,100 @@ Defaults для всего сайта: `metadataBase`, `title` (шаблон/def
 `openGraph`, `twitter`, `icons`, `verification`, `jsonLd`, `other`. Задаются
 через параметр `rasuvaeff/yii3-seo` → `defaults`.
 
+### `MetadataResolver` + `ResolvedMetadata`
+
+`MetadataResolver` — единый источник правил для defaults, шаблонов title и
+social fallback-ов. Он возвращает иммутабельный `ResolvedMetadata`, который
+можно анализировать независимо от Yii-рендеринга:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataResolver;
+
+$resolved = (new MetadataResolver())->resolve(
+    metadata: new Metadata(title: 'Product', description: 'Description'),
+    defaults: $defaults,
+);
+
+$resolved->getTitle();       // "Product | My Store"
+$resolved->getOpenGraph();   // объединённый OpenGraph с fallback title/description
+$resolved->getTwitter();     // объединённая Twitter card с fallback из OpenGraph
+```
+
+Настроенные относительные crawler-facing URL остаются относительными в
+`ResolvedMetadata`; при рендеринге они резолвятся относительно `metadataBase`.
+Обычно приложение получает текущий результат через
+`SeoInjection::getResolvedMetadata()`.
+
+`ResolvedMetadata::toArray()` экспортирует тот же результат нормализованным
+массивом — для JSON API, SPA-payload-ов, preview-инструментов и отладки:
+
+```php
+$resolved->toArray();
+// [
+//     'metadataBase' => 'https://example.com',
+//     'title' => 'Product | My Store',
+//     'description' => 'Description',
+//     'openGraph' => [
+//         'title' => 'Product | My Store',
+//         'type' => 'website',
+//         'images' => [['url' => 'https://example.com/og.jpg', 'width' => 1200]],
+//     ],
+//     'twitter' => ['card' => 'summary_large_image', ...],
+// ]
+```
+
+| Правило | Поведение |
+|---|---|
+| Crawler-facing URL | Canonical, hreflang, `og:url` и изображения резолвятся относительно `metadataBase` — так же, как при рендеринге |
+| Icons и manifest | Экспортируются как настроены, совпадая с отрендеренными `<link>` |
+| Относительный URL без `metadataBase` | Бросает `InvalidArgumentException` — та же ошибка, что и при рендеринге |
+| Пустые значения | `null` и пустые коллекции опускаются; `title` присутствует всегда |
+| Defaults | `openGraph.type` по умолчанию `website`, `twitter.card` — `summary_large_image`, как в отрендеренном head |
+
+### `MetadataValidator`
+
+`MetadataValidator` анализирует `ResolvedMetadata` и возвращает типизированные
+issue-объекты. Он никогда не бросает исключений и не меняет метаданные, поэтому
+его безопасно запускать в dev-панели, на preview-странице или в CI-проверке:
+
+```php
+use Rasuvaeff\Yii3Seo\MetadataValidator;
+
+$result = (new MetadataValidator())->validate($seo->getResolvedMetadata());
+
+$result->isValid();      // true, если нет errors (warnings — рекомендательные)
+$result->hasErrors();
+$result->getErrors();    // list<MetadataIssue>
+$result->getWarnings();  // list<MetadataIssue>
+
+foreach ($result->getIssues() as $issue) {
+    echo $issue->getSeverity()->value, ' ', $issue->getCode(), ': ', $issue->getMessage(), "\n";
+}
+// error title.missing: Page title is empty
+// warning canonical.missing: Canonical URL is not set
+```
+
+Каждый `MetadataIssue` несёт `MetadataIssueSeverity` (`Error` или `Warning`),
+стабильный машиночитаемый `code` для фильтрации и человекочитаемое сообщение.
+
+| Code | Severity | Когда сообщается |
+|---|---|---|
+| `title.missing` | Error | Итоговый title пуст |
+| `title.too_long` | Warning | Title длиннее 60 символов |
+| `description.missing` | Warning | Meta description не задан |
+| `description.too_short` | Warning | Description короче 50 символов |
+| `description.too_long` | Warning | Description длиннее 160 символов |
+| `canonical.missing` | Warning | Canonical URL не задан |
+| `canonical.og_url_mismatch` | Error | Canonical URL и `og:url` резолвятся в разные URL |
+| `url.unresolvable` | Error | Crawler-facing URL невалиден или относителен без `metadataBase` |
+| `image.missing` | Warning | Не задано ни Open Graph, ни Twitter изображение |
+| `image.alt_missing` | Warning | У Open Graph изображения нет alt |
+| `image.dimensions_missing` | Warning | У Open Graph изображения нет width и height |
+| `robots.conflicting` | Error | В `robots`/`googlebot` противоречивые директивы, например `index` и `noindex` |
+| `other.duplicate` | Warning | Один и тот же кастомный meta-тег объявлен дважды |
+
+Длины — рекомендательные: они никогда не делают результат невалидным.
+
 ### `Title`
 
 | Фабрика | Назначение |
@@ -211,6 +348,49 @@ new Alternates(
 ```
 
 Локали матчатся по `/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)$/`.
+
+### `SelfCanonical` + `SelfCanonicalMiddleware`
+
+Опциональная стратегия: canonical URL для страниц, которые не задали его сами,
+выводится из `metadataBase` и текущего пути запроса.
+
+```php
+// config/common/params.php
+use Rasuvaeff\Yii3Seo\MetadataDefaults;
+use Rasuvaeff\Yii3Seo\SelfCanonical;
+
+new MetadataDefaults(
+    metadataBase: 'https://example.com',
+    selfCanonical: SelfCanonical::enabled(),                 // выбросить все query-параметры
+    // selfCanonical: SelfCanonical::keepingQuery('page'),   // оставить явный allow-list
+);
+```
+
+```php
+// config/common/params.php — стек middleware приложения
+use Rasuvaeff\Yii3Seo\SelfCanonicalMiddleware;
+
+'middlewares' => [
+    SelfCanonicalMiddleware::class,
+    // ... роутер и остальной стек
+],
+```
+
+Запрос `https://example.com/products/1?page=2&utm_source=mail` отрендерит
+`<link rel="canonical" href="https://example.com/products/1?page=2">`.
+
+| Правило | Поведение |
+|---|---|
+| Authority запроса | Игнорируется. Читаются только path и query, поэтому запрос на другой хост, порт или схему всё равно даёт URL настроенного сайта |
+| Query-параметры | По умолчанию выбрасываются. `SelfCanonical::keepingQuery(...)` оставляет явный allow-list |
+| Порядок параметров | Порядок allow-list, а не запроса: `?sort=a&page=1` и `?page=1&sort=a` дают одинаковый canonical |
+| Параметры-массивы | Никогда не попадают в canonical (`?tag[]=a` выбрасывается, даже если `tag` в allow-list) |
+| Явный `Alternates::canonical` | Всегда побеждает; заданные страницей hreflang `languages` сохраняются |
+| `metadataBase` | Обязателен — `MetadataDefaults` бросает исключение, если `selfCanonical` задан без него |
+| Без middleware | Путь запроса не записывается, и стратегия ничего не делает |
+
+`SelfCanonicalMiddleware` вызывает `SeoInjection::setRequestPath()`; порядок
+относительно установки метаданных страницы значения не имеет.
 
 ### `OpenGraph` + `OgImage`
 
@@ -281,15 +461,17 @@ JsonLd::fromArray(['@context' => 'https://schema.org', '@type' => 'WebPage', 'na
 
 ### `SeoInjection`
 
-Singleton, регистрируемый в DI. Реализует `MetaTagsInjectionInterface` +
-`LinkTagsInjectionInterface`. DI-конфиг пакета также регистрирует сервисный
-хук `reset`, поэтому устаревшие метаданные per-request очищаются между
-запросами в переиспользуемых runtime-ах.
+Singleton, регистрируемый в DI. Реализует `LayoutParametersInjectionInterface`,
+`MetaTagsInjectionInterface` и `LinkTagsInjectionInterface`. DI-конфиг пакета
+также регистрирует сервисный хук `reset`, поэтому устаревшие метаданные
+per-request очищаются между запросами в переиспользуемых runtime-ах.
 
 | Метод | Описание |
 |---|---|
 | `setMetadata(Metadata)` | Установить метаданные для текущего запроса |
 | `clear()` | Сброс (полезно в тестах) |
+| `getLayoutParameters(): array` | Передаёт injection в layout как `$seo` |
+| `getResolvedMetadata(): ResolvedMetadata` | Полностью объединённые логические metadata |
 | `getTitle(): string` | Резолвленный title для `<title>` |
 | `getMetaTags(): list<Meta>` | Вызывается `WebViewRenderer`-ом |
 | `getLinkTags(): array<Link>` | Вызывается `WebViewRenderer`-ом |
@@ -308,6 +490,9 @@ Singleton, регистрируемый в DI. Реализует `MetaTagsInjec
 
 См. [`examples/`](examples/) — запускаемые скрипты и эскиз Yii3-интеграции:
 [`examples/yii3-app.php`](examples/yii3-app.php).
+
+План автоматических canonical URL, диагностики, sitemap, `robots.txt` и
+типизированных structured-data builders находится в [ROADMAP.md](ROADMAP.md).
 
 ## Разработка
 

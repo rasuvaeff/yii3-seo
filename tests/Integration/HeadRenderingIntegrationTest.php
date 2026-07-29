@@ -19,6 +19,7 @@ use Testo\Assert;
 use Testo\Codecov\CoversNothing;
 use Testo\Lifecycle\BeforeTest;
 use Testo\Test;
+use Yiisoft\Yii\View\Renderer\LayoutParametersInjectionInterface;
 use Yiisoft\Yii\View\Renderer\LinkTagsInjectionInterface;
 use Yiisoft\Yii\View\Renderer\MetaTagsInjectionInterface;
 
@@ -64,8 +65,10 @@ final class HeadRenderingIntegrationTest
 
     public function seoInjectionFulfillsTheWebViewRendererContract(): void
     {
+        Assert::instanceOf($this->injection, LayoutParametersInjectionInterface::class);
         Assert::instanceOf($this->injection, MetaTagsInjectionInterface::class);
         Assert::instanceOf($this->injection, LinkTagsInjectionInterface::class);
+        Assert::same($this->injection->getLayoutParameters(), ['seo' => $this->injection]);
     }
 
     public function fullHeadIsAssembledFromDefaultsAndPageMetadata(): void
@@ -94,7 +97,8 @@ final class HeadRenderingIntegrationTest
 
     private function renderHead(): string
     {
-        $parts = ['<title>' . htmlspecialchars($this->injection->getTitle(), ENT_QUOTES) . '</title>'];
+        $seo = $this->injection->getLayoutParameters()['seo'];
+        $parts = ['<title>' . htmlspecialchars($seo->getTitle(), ENT_QUOTES) . '</title>'];
 
         foreach ($this->injection->getMetaTags() as $tag) {
             $parts[] = $tag->render();
@@ -104,7 +108,7 @@ final class HeadRenderingIntegrationTest
             $parts[] = $tag->render();
         }
 
-        $parts[] = $this->injection->getJsonLdHtml();
+        $parts[] = $seo->getJsonLdHtml();
 
         return implode("\n", $parts);
     }

@@ -63,6 +63,18 @@ final class JsonLdTest
         Assert::same($jsonLd->getData(), $data);
     }
 
+    public function toJsonReturnsTheEncodedBlockWithoutTheScriptElement(): void
+    {
+        $json = JsonLd::fromArray(['@type' => 'WebPage', 'name' => '</script>'])->toJson();
+
+        Assert::same($json, <<<'JSON'
+            {
+                "@type": "WebPage",
+                "name": "\u003C/script\u003E"
+            }
+            JSON);
+    }
+
     public function getDataReturnsOriginal(): void
     {
         $data = ['@context' => 'https://schema.org', '@type' => 'Organization'];

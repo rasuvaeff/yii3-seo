@@ -15,18 +15,6 @@ final readonly class Metadata
 {
     private ?Title $title;
 
-    /** @var list<string> */
-    private array $keywords;
-
-    /** @var list<Author> */
-    private array $authors;
-
-    /** @var list<JsonLd> */
-    private array $jsonLd;
-
-    /** @var list<MetaTag> */
-    private array $other;
-
     /**
      * @param list<string> $keywords
      * @param list<Author> $authors
@@ -36,8 +24,8 @@ final readonly class Metadata
     public function __construct(
         string|Title|null $title = null,
         private ?string $description = null,
-        array $keywords = [],
-        array $authors = [],
+        private array $keywords = [],
+        private array $authors = [],
         private ?string $applicationName = null,
         private ?string $generator = null,
         private ?string $creator = null,
@@ -51,14 +39,10 @@ final readonly class Metadata
         private ?Icons $icons = null,
         private ?string $manifest = null,
         private ?Verification $verification = null,
-        array $jsonLd = [],
-        array $other = [],
+        private array $jsonLd = [],
+        private array $other = [],
     ) {
         $this->title = is_string($title) ? Title::of($title) : $title;
-        $this->keywords = $keywords;
-        $this->authors = $authors;
-        $this->jsonLd = $jsonLd;
-        $this->other = $other;
     }
 
     public function getTitle(): ?Title
