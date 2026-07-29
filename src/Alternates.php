@@ -14,8 +14,6 @@ use InvalidArgumentException;
  */
 final readonly class Alternates
 {
-    private const string LOCALE_PATTERN = '/^(?:[a-z]{2}(?:-[A-Z]{2})?|x-default)\z/';
-
     /** @var array<string, string> */
     private array $languages;
 
@@ -29,9 +27,7 @@ final readonly class Alternates
         }
 
         foreach ($languages as $locale => $url) {
-            if (preg_match(self::LOCALE_PATTERN, $locale) !== 1) {
-                throw new InvalidArgumentException("Invalid hreflang locale \"{$locale}\"");
-            }
+            HreflangLocale::assert($locale);
 
             if ($url === '') {
                 throw new InvalidArgumentException("Alternate URL for \"{$locale}\" must not be empty");

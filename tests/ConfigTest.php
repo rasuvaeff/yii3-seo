@@ -8,6 +8,7 @@ use Rasuvaeff\Yii3Seo\MetadataDefaults;
 use Rasuvaeff\Yii3Seo\SeoInjection;
 use Rasuvaeff\Yii3Seo\SeoMetadataEvent;
 use Rasuvaeff\Yii3Seo\SetSeoMetadataEventHandler;
+use Rasuvaeff\Yii3Seo\SitemapFileExporter;
 use Testo\Assert;
 use Testo\Codecov\CoversNothing;
 use Testo\Test;
@@ -25,6 +26,19 @@ final class ConfigTest
         $di = $this->di();
 
         Assert::array($di)->hasKeys(SeoInjection::class, SetSeoMetadataEventHandler::class);
+    }
+
+    public function sitemapExporterInheritsTheMetadataBaseAndThePublicPath(): void
+    {
+        $definition = $this->di()[SitemapFileExporter::class];
+
+        Assert::null($definition['__construct()']['metadataBase']);
+        Assert::same($definition['__construct()']['publicPath'], '/');
+    }
+
+    public function paramsDeclareTheSitemapPublicPath(): void
+    {
+        Assert::same($this->params()['rasuvaeff/yii3-seo']['sitemap']['publicPath'], '/');
     }
 
     public function seoInjectionFallsBackToEmptyDefaultsWhenTheParameterIsUnset(): void
