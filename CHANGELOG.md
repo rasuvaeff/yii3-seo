@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+- Add XML sitemap generation: typed `SitemapUrl` (with `lastmod`, `changefreq`,
+  `priority`, `<image:image>` entries and `xhtml` hreflang alternates),
+  `Sitemap`, `SitemapIndex`/`SitemapIndexEntry` and `SitemapProviderInterface`
+  for application-owned URL sources. Documents implement
+  `SitemapDocumentInterface` and are emitted as chunks, so a provider backed by
+  a database cursor never materialises its result set. Sitemap URLs resolve
+  against `metadataBase` through the same `UrlResolver` the head metadata uses,
+  and values are escaped by `XMLWriter`.
+- Add `SitemapFileExporter`: writes a URL stream to files, enforcing both
+  protocol limits (50 000 URLs and 50 MiB per file, configurable down through
+  `SitemapLimits`) by measuring each rendered entry before appending it, and
+  writing the matching `sitemap.xml` index when the stream does not fit into a
+  single file. It is registered in the package DI config and inherits
+  `metadataBase` from `MetadataDefaults`; the new `rasuvaeff/yii3-seo` →
+  `sitemap` → `publicPath` parameter prefixes the index entries.
+- Add `SitemapResponseFactory`, which serves a sitemap document as a PSR-7
+  response through a `php://temp` stream.
+- Require `ext-xmlwriter` and `psr/http-factory`.
+
 ## 1.1.0 — 2026-07-29
 
 - Ship an agent skill (`resources/skills/rasuvaeff-yii3-seo/SKILL.md`) declared

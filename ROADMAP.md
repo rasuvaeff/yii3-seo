@@ -101,14 +101,16 @@ adding isolated, uncommon metadata fields.
 
 ### XML sitemap
 
-- [ ] Add typed `SitemapUrl`, `Sitemap` and `SitemapIndex` APIs.
-- [ ] Add `SitemapProviderInterface` for application-owned URL sources.
-- [ ] Support `lastmod`, images and hreflang alternatives.
-- [ ] Stream XML so large sites are not held fully in memory.
-- [ ] Split output at protocol limits and generate the corresponding sitemap
-  index.
-- [ ] Provide both PSR-7 responses and deterministic file export.
-- [ ] Prefer provider-based generation; defer automatic site crawling to an
+- [x] Add typed `SitemapUrl`, `Sitemap` and `SitemapIndex` APIs.
+- [x] Add `SitemapProviderInterface` for application-owned URL sources.
+- [x] Support `lastmod`, images and hreflang alternatives.
+- [x] Stream XML so large sites are not held fully in memory. Documents
+  implement `SitemapDocumentInterface::toChunks()` and pull one URL at a time.
+- [x] Split output at protocol limits and generate the corresponding sitemap
+  index. `SitemapFileExporter` enforces both the 50 000-URL and the 50 MiB
+  limit by measuring each rendered entry before appending it.
+- [x] Provide both PSR-7 responses and deterministic file export.
+- [x] Prefer provider-based generation; defer automatic site crawling to an
   optional adapter or separate package.
 
 ### robots.txt and response policy

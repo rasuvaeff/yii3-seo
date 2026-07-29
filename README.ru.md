@@ -26,11 +26,12 @@ verification и JSON-LD — а единственный инстанс `Metadata
 
 ## Требования
 
-- PHP 8.3+, `ext-filter`, `ext-mbstring`
+- PHP 8.3+, `ext-filter`, `ext-mbstring`, `ext-xmlwriter`
 - `yiisoft/html` ^3.13 || ^4.0
 - `yiisoft/view` ^12.0
 - `yiisoft/yii-view-renderer` ^7.4
 - `psr/http-message`, `psr/http-server-handler`, `psr/http-server-middleware` (middleware для self-canonical)
+- `psr/http-factory` (ответы с картой сайта)
 
 ## Установка
 
@@ -477,22 +478,146 @@ per-request очищаются между запросами в переиспо
 | `getLinkTags(): array<Link>` | Вызывается `WebViewRenderer`-ом |
 | `getJsonLdHtml(): string` | HTML JSON-LD `<script>`-блоков |
 
+## Карты сайта
+
+Sitemap-часть пакета не зависит от метаданных `<head>`: ей нужен только
+источник URL-ов и тот же `metadataBase`. Пакет никогда не обходит сайт сам —
+что попадает в карту, всегда решает приложение.
+
+### `SitemapUrl`
+
+| Аргумент | Тип | Примечания |
+|---|---|---|
+| `loc` | `string` | Обязателен. Абсолютный либо относительный — резолвится против `metadataBase` |
+| `lastModified` | `?DateTimeImmutable` | Рендерится как `<lastmod>` в формате W3C datetime |
+| `changeFrequency` | `?ChangeFrequency` | `Always`…`Never`; подсказка, которую краулер вправе игнорировать |
+| `priority` | `?float` | `0.0`–`1.0`, рендерится с одним знаком после точки |
+| `images` | `SitemapImage[]` | Элементы `<image:image>` |
+| `alternates` | `array<string, string>` | `локаль => url`, рендерится как `<xhtml:link rel="alternate">` |
+
+Локали подчиняются тем же правилам, что и в `Alternates`: `de`, `de-DE` или
+`x-default`.
+
+### `SitemapProviderInterface`
+
+```php
+final class ProductSitemapProvider implements SitemapProviderInterface
+{
+    public function __construct(private ProductRepository $products) {}
+
+    public function getUrls(): iterable
+    {
+        foreach ($this->products->each() as $product) {
+            yield new SitemapUrl(
+                loc: "/products/{$product->id}",
+                lastModified: $product->updatedAt,
+                priority: 0.8,
+            );
+        }
+    }
+}
+```
+
+Именно `yield`, а не возврат массива: все потребители ниже забирают по одному
+URL за раз, поэтому провайдер поверх курсора БД не материализует выборку.
+
+### `Sitemap` и `SitemapIndex`
+
+Оба реализуют `SitemapDocumentInterface` и отдают документ чанками:
+
+```php
+$sitemap = new Sitemap($provider->getUrls(), 'https://example.com');
+
+foreach ($sitemap->toChunks() as $chunk) {
+    echo $chunk;
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<url><loc>https://example.com/products/1</loc><lastmod>2026-07-21T10:00:00+00:00</lastmod><priority>0.8</priority></url>
+</urlset>
+```
+
+Документ, построенный из `Generator`, отдаётся один раз; передайте массив,
+чтобы его можно было рендерить повторно. `SitemapIndex` принимает объекты
+`SitemapIndexEntry` (`loc` плюс необязательный `lastModified`) и выдаёт
+`<sitemapindex>`.
+
+### `SitemapFileExporter`
+
+Пишет поток URL-ов на диск, соблюдая оба лимита протокола — 50 000 URL и
+50 MiB без сжатия — измеряя каждую отрендеренную запись до записи в файл:
+
+```php
+$exporter = new SitemapFileExporter(
+    metadataBase: 'https://example.com',
+    limits: new SitemapLimits(),   // по умолчанию — максимумы протокола
+    publicPath: '/',               // URL-путь, по которому отдаются файлы
+);
+
+$files = $exporter->export($provider->getUrls(), '/var/www/public');
+```
+
+Раскладка зависит только от потока URL-ов:
+
+| URL-ы | Записанные файлы |
+|---|---|
+| Помещаются в один файл | `sitemap.xml` — обычный `<urlset>` |
+| Не помещаются | `sitemap-1.xml` … `sitemap-N.xml` плюс индекс `sitemap.xml` |
+
+`export()` возвращает пути записанных файлов в порядке записи. Ничего не
+удаляется: chunk-файлы от прошлого, более крупного экспорта остаются на диске,
+и свежий индекс на них не ссылается. Один URL, не влезающий в байтовый лимит,
+бросает `InvalidArgumentException`, а не создаёт файл сверх лимита.
+
+`SitemapFileExporter` зарегистрирован в DI и наследует `metadataBase` из
+настроенного `MetadataDefaults`; `publicPath` берётся из параметра
+`rasuvaeff/yii3-seo` → `sitemap` → `publicPath`.
+
+### `SitemapResponseFactory`
+
+Отдаёт документ из роута. Тело — поток `php://temp`, поэтому карта на 50 MiB
+не стоит 50 MiB памяти PHP:
+
+```php
+final class SitemapAction
+{
+    public function __construct(
+        private SitemapResponseFactory $responses,
+        private ProductSitemapProvider $provider,
+    ) {}
+
+    public function __invoke(): ResponseInterface
+    {
+        return $this->responses->create(new Sitemap($this->provider->getUrls(), 'https://example.com'));
+    }
+}
+```
+
+Нужны PSR-17 `ResponseFactoryInterface` и `StreamFactoryInterface` — оба уже
+есть в контейнере Yii3-приложения.
+
 ## Безопасность
 
 - URL-ы для краулеров (canonical, hreflang, `og:image`, `og:url`,
-  `twitter:image`) резолвятся против `metadataBase`; абсолютные URL-ы
-  валидируются через `FILTER_VALIDATE_URL`. Относительный URL без базы бросает
-  `InvalidArgumentException`.
+  `twitter:image`, а также все URL-ы карты сайта) резолвятся против
+  `metadataBase`; абсолютные URL-ы валидируются через `FILTER_VALIDATE_URL`.
+  Относительный URL без базы бросает `InvalidArgumentException`.
 - HTML-экранирование выполняется `Yiisoft\Html` — без конкатенации сырых строк.
+- XML-экранирование карты сайта выполняет `XMLWriter`; литералами остаются
+  только фиксированные заголовок и футер документа, данных они не содержат.
 - JSON-LD использует `JSON_HEX_TAG` для защиты от инъекции `</script>`.
 
 ## Примеры
 
 См. [`examples/`](examples/) — запускаемые скрипты и эскиз Yii3-интеграции:
-[`examples/yii3-app.php`](examples/yii3-app.php).
+[`examples/yii3-app.php`](examples/yii3-app.php). Генерация карты сайта и
+экспорт в файлы: [`examples/sitemap.php`](examples/sitemap.php).
 
-План автоматических canonical URL, диагностики, sitemap, `robots.txt` и
-типизированных structured-data builders находится в [ROADMAP.md](ROADMAP.md).
+План поддержки `robots.txt` и типизированных structured-data builders
+находится в [ROADMAP.md](ROADMAP.md).
 
 ## Разработка
 

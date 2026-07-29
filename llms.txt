@@ -22,6 +22,7 @@ composer require rasuvaeff/yii3-seo
 - `MetadataResolver::resolve()` is the single source of merge/fallback behavior and returns immutable `ResolvedMetadata`. Relative crawler-facing URLs are resolved later by the rendering adapter.
 - `<title>` and JSON-LD are NOT registered by the meta/link interfaces — render them from the automatically injected `$seo` layout parameter via `getTitle()` and `getJsonLdHtml()`. Do NOT listen to `Yiisoft\View\Event\WebView\PageBegin` to avoid it: `WebViewEvent::getView()` is `@internal` to Yiisoft.
 - Config groups shipped: `di`, `params`, `events-web`. The `SeoMetadataEvent` → `SetSeoMetadataEventHandler` listener is registered automatically — do NOT repeat it in the application. `HttpApplicationRunner` reads `events-web` with `RecursiveMerge`, so package listeners merge with the application's instead of colliding.
+- Sitemaps are a separate, head-independent surface: `SitemapUrl` + `SitemapProviderInterface` in, `Sitemap`/`SitemapIndex` chunks out. Every sitemap URL is resolved against the same `metadataBase`; XML escaping is `XMLWriter`'s job, never string concatenation.
 - All URL/identifier validation throws `InvalidArgumentException` (message without trailing period).
 
 ## API
@@ -222,3 +223,45 @@ WebViewRenderer::class => [
 <title><?= Html::encode($seo->getTitle()) ?></title>
 <?= $seo->getJsonLdHtml() ?>
 ```
+
+### Sitemap (crawlability)
+
+```php
+use Rasuvaeff\Yii3Seo\{ChangeFrequency, Sitemap, SitemapFileExporter, SitemapImage, SitemapIndex,
+    SitemapIndexEntry, SitemapLimits, SitemapProviderInterface, SitemapResponseFactory, SitemapUrl};
+
+final class ProductSitemapProvider implements SitemapProviderInterface
+{
+    public function getUrls(): iterable            // yield, never return an array
+    {
+        yield new SitemapUrl(
+            loc: '/products/1',                    // relative -> resolved against metadataBase
+            lastModified: new DateTimeImmutable('2026-07-21T10:00:00+00:00'),
+            changeFrequency: ChangeFrequency::Weekly,
+            priority: 0.8,                          // 0.0-1.0, one decimal
+            images: [new SitemapImage('/images/1.jpg')],
+            alternates: ['de-DE' => '/de/produkte/1'],   // same locale rules as Alternates
+        );
+    }
+}
+
+// Stream a document (SitemapDocumentInterface::toChunks(): iterable<string>)
+foreach ((new Sitemap($provider->getUrls(), 'https://example.com'))->toChunks() as $chunk) {
+    echo $chunk;
+}
+
+// Serve it from a route (PSR-17 factories from the container; body is php://temp)
+$response = $responseFactory->create(new Sitemap($provider->getUrls(), 'https://example.com'));
+
+// Export to files, enforcing 50 000 URLs and 50 MiB per file
+$paths = (new SitemapFileExporter('https://example.com', new SitemapLimits(), '/'))
+    ->export($provider->getUrls(), '/var/www/public');
+```
+
+Rules:
+
+- One file -> `sitemap.xml` (a `<urlset>`). More than one -> `sitemap-1.xml` … `sitemap-N.xml` plus a `sitemap.xml` index. `export()` returns the written paths in write order and deletes nothing.
+- `SitemapLimits` accepts stricter values only; above 50 000 / 52 428 800 it throws. A single URL that cannot fit the byte limit throws instead of producing an over-limit file.
+- A document built from a `Generator` renders once; pass an array to re-render.
+- `SitemapFileExporter` is in the package DI config and inherits `metadataBase` from `MetadataDefaults`; `publicPath` comes from `rasuvaeff/yii3-seo` → `sitemap` → `publicPath` and prefixes the index entries.
+- `lastmod` is a `DateTimeImmutable` rendered in W3C datetime (`DateTimeInterface::ATOM`). The exporter never stamps a timestamp itself — pass one to `export()` if the index needs `lastmod`.

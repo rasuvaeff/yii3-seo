@@ -9,7 +9,10 @@ A single declarative `Metadata` value object describes a page; site-wide
 `MetadataDefaults` is merged by `MetadataResolver` into `ResolvedMetadata`.
 `SeoInjection` wires the result into `WebViewRenderer` via
 `MetaTagsInjectionInterface` and `LinkTagsInjectionInterface` so meta and link
-tags land in `<head>` automatically.
+tags land in `<head>` automatically. A second, head-independent surface covers
+crawlability: `SitemapUrl` + `SitemapProviderInterface` in, `Sitemap` /
+`SitemapIndex` chunks out, served by `SitemapResponseFactory` or written by
+`SitemapFileExporter`.
 
 Namespace: `Rasuvaeff\Yii3Seo`.
 
@@ -19,16 +22,23 @@ Public API (`@api`): `Metadata`, `MetadataDefaults`, `MetadataResolver`,
 `SelfCanonical`, `SelfCanonicalMiddleware`,
 `OpenGraph`, `OgImage`, `TwitterCard`, `Robots`, `Icons`, `Icon`, `Verification`,
 `Author`, `MetaTag`, `JsonLd`, `SeoInjection`, `SeoMetadataEvent`,
-`SetSeoMetadataEventHandler`. Internal (`@internal`): `UrlResolver`.
+`SetSeoMetadataEventHandler`, `Sitemap`, `SitemapIndex`, `SitemapUrl`,
+`SitemapImage`, `SitemapIndexEntry`, `SitemapLimits`, `ChangeFrequency`,
+`SitemapDocumentInterface`, `SitemapProviderInterface`, `SitemapFileExporter`,
+`SitemapResponseFactory`. Internal (`@internal`): `UrlResolver`,
+`SitemapXmlWriter`, `HreflangLocale`.
 
 ## Golden rules
 
 1. **Verification is mandatory.** Never claim "done" without a fresh green
    `composer build`. "Should work" does not count.
 2. **No suppressions.** No `@psalm-suppress`, no baseline. Fix the root cause.
-3. **HTML escaping is Yiisoft\Html's job.** Never concatenate raw strings into
-   HTML. Use `Html::meta()`, `Html::link()` and their fluent setters.
-   JSON-LD must use `JSON_HEX_TAG` to prevent `</script>` injection.
+3. **Escaping belongs to a library, never to concatenation.** In `<head>` that
+   is `Yiisoft\Html`: use `Html::meta()`, `Html::link()` and their fluent
+   setters; JSON-LD must use `JSON_HEX_TAG` to prevent `</script>` injection. In
+   sitemap XML that is `XMLWriter`, wrapped by `SitemapXmlWriter` — the only
+   literals allowed there are the fixed document header and footer, which carry
+   no input.
 4. **Preserve the public contract.** Update README + llms.txt + tests with any
    API change.
 
@@ -103,6 +113,22 @@ inside the `composer:2` container because the base image has no coverage driver.
   contract — adding one is a minor change, renaming one is breaking.
 - `MetadataValidator` uses `mb_strlen`, so `ext-mbstring` is in `require` and
   `mbstring` is in `extensions:` of every CI job. Do not drop either.
+- **Sitemaps reuse `UrlResolver`, not a second URL joiner.** Every `loc`, image
+  location and alternate `href` is crawler-facing and anchors to `metadataBase`
+  exactly like canonical/`og:url`. A relative URL with no base throws.
+- `SitemapFileExporter` enforces both protocol limits by measuring each rendered
+  entry *before* appending it (rendering is done once, by `SitemapXmlWriter`).
+  Layout is a function of the URL stream only: one chunk → `sitemap.xml`, more →
+  `sitemap-1.xml` … `sitemap-N.xml` plus a `sitemap.xml` index. It deletes
+  nothing and never stamps its own `lastmod` — determinism is the point, and
+  `Assert::same` snapshots in `tests/Integration` freeze it.
+- `SitemapDocumentInterface::toChunks()` is a one-shot when the document was
+  built from a `Generator`. Providers should yield; `Sitemap` never buffers the
+  URL stream.
+- `make mutation` writes a stray `/sitemap.xml` (and `sitemap-*.xml`) into the
+  package root: a mutant drops the target directory from the export path. Both
+  are gitignored — do not commit them, and do not "fix" them by weakening the
+  exporter tests.
 - `SeoInjection::getMetaTags()` returns `list<Yiisoft\Html\Tag\Meta>`; `getLinkTags()` returns `array<array-key, Yiisoft\Html\Tag\Link>` with `'canonical'`/`'manifest'` keys.
 - `SeoInjection` implements layout/meta/link injection. The layout receives it
   as `$seo`; `<title>` and JSON-LD use `$seo->getTitle()` and
