@@ -1,6 +1,6 @@
 {
     "name": "rasuvaeff/yii3-seo",
-    "description": "Next.js-inspired, Yii3-native typed SEO metadata: title templates, OpenGraph, Twitter cards, hreflang, canonical URLs, robots and JSON-LD",
+    "description": "Next.js-inspired, Yii3-native typed SEO metadata: title templates, OpenGraph, Twitter cards, hreflang, canonical URLs, robots, JSON-LD and XML sitemaps",
     "license": "BSD-3-Clause",
     "type": "library",
     "keywords": [
@@ -11,6 +11,7 @@
         "twitter-cards",
         "hreflang",
         "json-ld",
+        "sitemap",
         "yii3"
     ],
     "authors": [
@@ -28,6 +29,8 @@
         "php": "8.3 - 8.5",
         "ext-filter": "*",
         "ext-mbstring": "*",
+        "ext-xmlwriter": "*",
+        "psr/http-factory": "^1.1",
         "psr/http-message": "^1.1 || ^2.0",
         "psr/http-server-handler": "^1.0",
         "psr/http-server-middleware": "^1.0",

@@ -15,18 +15,20 @@ Next.js-inspired, Yii3-native typed SEO metadata. Describe a page with one
 declarative `Metadata` object — title templates, OpenGraph, Twitter cards,
 hreflang, canonical URL, robots directives, icons, verification and JSON-LD —
 and a single `MetadataDefaults` instance supplies site-wide values. Tags land
-in `<head>` automatically via `WebViewRenderer`.
+in `<head>` automatically via `WebViewRenderer`. XML sitemaps are generated from
+the same configured origin.
 
 > Using an AI coding assistant? [llms.txt](llms.txt) has a compact API reference ready to paste into context.
 > Projects using the [llm/skills](https://github.com/roxblnfk/skills) Composer plugin also get this package's agent skill synced into `.agents/skills/` automatically on install.
 
 ## Requirements
 
-- PHP 8.3+, `ext-filter`, `ext-mbstring`
+- PHP 8.3+, `ext-filter`, `ext-mbstring`, `ext-xmlwriter`
 - `yiisoft/html` ^3.13 || ^4.0
 - `yiisoft/view` ^12.0
 - `yiisoft/yii-view-renderer` ^7.4
 - `psr/http-message`, `psr/http-server-handler`, `psr/http-server-middleware` (self-canonical middleware)
+- `psr/http-factory` (sitemap responses)
 
 ## Installation
 
@@ -472,19 +474,238 @@ cleared between requests in reusable runtimes.
 | `getLinkTags(): array<Link>` | Called by `WebViewRenderer` |
 | `getJsonLdHtml(): string` | Rendered JSON-LD `<script>` blocks |
 
+## Sitemaps
+
+The sitemap side of the package is independent of the head metadata: it needs
+nothing but a source of URLs and the same `metadataBase`. The package never
+crawls the site — the application always says what belongs in the sitemap.
+
+### `SitemapUrl`
+
+| Argument | Type | Notes |
+|---|---|---|
+| `loc` | `string` | Required. Absolute, or relative and resolved against `metadataBase` |
+| `lastModified` | `?DateTimeImmutable` | Rendered as `<lastmod>` in W3C datetime format |
+| `changeFrequency` | `?ChangeFrequency` | `Always`…`Never`; a hint crawlers may ignore |
+| `priority` | `?float` | `0.0`–`1.0`, rendered with one decimal |
+| `images` | `SitemapImage[]` | `<image:image>` entries |
+| `alternates` | `array<string, string>` | `locale => url`, rendered as `<xhtml:link rel="alternate">` |
+
+Locales use the same rules as `Alternates`: `de`, `de-DE` or `x-default`.
+
+### `SitemapProviderInterface`
+
+```php
+final class ProductSitemapProvider implements SitemapProviderInterface
+{
+    public function __construct(private ProductRepository $products) {}
+
+    public function getUrls(): iterable
+    {
+        foreach ($this->products->each() as $product) {
+            yield new SitemapUrl(
+                loc: "/products/{$product->id}",
+                lastModified: $product->updatedAt,
+                priority: 0.8,
+            );
+        }
+    }
+}
+```
+
+Yield instead of returning an array: every consumer below pulls one URL at a
+time, so a provider backed by a database cursor never materialises its result
+set.
+
+### `Sitemap` and `SitemapIndex`
+
+Both implement `SitemapDocumentInterface` and emit the document as chunks:
+
+```php
+$sitemap = new Sitemap($provider->getUrls(), 'https://example.com');
+
+foreach ($sitemap->toChunks() as $chunk) {
+    echo $chunk;
+}
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<url><loc>https://example.com/products/1</loc><lastmod>2026-07-21T10:00:00+00:00</lastmod><priority>0.8</priority></url>
+</urlset>
+```
+
+A document built from a `Generator` can be emitted once; pass an array to make
+it re-renderable. `SitemapIndex` takes `SitemapIndexEntry` objects (`loc` plus an
+optional `lastModified`) and produces a `<sitemapindex>`.
+
+### `SitemapFileExporter`
+
+Writes a URL stream to disk, enforcing both protocol limits — 50 000 URLs and
+50 MiB uncompressed — by measuring each rendered entry before appending it:
+
+```php
+$exporter = new SitemapFileExporter(
+    metadataBase: 'https://example.com',
+    limits: new SitemapLimits(),   // defaults to the protocol maximums
+    publicPath: '/',               // URL path the files are served under
+);
+
+$files = $exporter->export($provider->getUrls(), '/var/www/public');
+```
+
+The layout depends only on the URL stream:
+
+| URLs | Files written |
+|---|---|
+| Fit into one file | `sitemap.xml` — a plain `<urlset>` |
+| Do not fit | `sitemap-1.xml` … `sitemap-N.xml` plus a `sitemap.xml` index |
+
+`export()` returns the written file paths in write order. Nothing is deleted:
+chunk files left by an earlier, larger export stay on disk and the fresh index
+never references them. A single URL that cannot fit into the byte limit throws
+`InvalidArgumentException` rather than producing an over-limit file — the chunk
+opened at that moment is left on disk without its closing tag, so treat a failed
+export as one to re-run, not as a partial result to publish.
+
+`publicPath` must match where the written files are actually served from:
+exporting into `/var/www/public/sitemaps` while leaving `publicPath` at `/`
+produces an index pointing at `https://example.com/sitemap-1.xml`, which 404s.
+Nothing can check this for you — the exporter never sees the URL the directory
+is published under.
+
+`SitemapFileExporter` is wired in DI and inherits `metadataBase` from the
+configured `MetadataDefaults`; `publicPath` comes from the
+`rasuvaeff/yii3-seo` → `sitemap` → `publicPath` parameter.
+
+### `SitemapResponseFactory`
+
+Serves a document from a route. The body is a `php://temp` stream, so a 50 MiB
+sitemap does not cost 50 MiB of PHP memory:
+
+```php
+final class SitemapAction
+{
+    public function __construct(
+        private SitemapResponseFactory $responses,
+        private ProductSitemapProvider $provider,
+    ) {}
+
+    public function __invoke(): ResponseInterface
+    {
+        return $this->responses->create(new Sitemap($this->provider->getUrls(), 'https://example.com'));
+    }
+}
+```
+
+It needs a PSR-17 `ResponseFactoryInterface` and `StreamFactoryInterface`, both
+of which a Yii3 application already has in its container.
+
+## robots.txt
+
+`RobotsTxt` is a typed document, not a template: every user agent and path is
+validated, and a value carrying a control character is rejected rather than
+written, so configuration can never forge an extra `Disallow: /` line.
+
+```php
+$robotsTxt = new RobotsTxt(
+    groups: [
+        new RobotsTxtGroup(
+            userAgents: ['*'],
+            allow: ['/admin/public/'],
+            disallow: ['/admin/', '/cart/', '*.json'],
+        ),
+        new RobotsTxtGroup(userAgents: ['AhrefsBot'], disallow: ['/'], crawlDelay: 10),
+    ],
+    sitemaps: ['/sitemap.xml'],
+    metadataBase: 'https://example.com',
+);
+
+echo $robotsTxt->toString();
+```
+
+```
+User-agent: *
+Allow: /admin/public/
+Disallow: /admin/
+Disallow: /cart/
+Disallow: *.json
+
+User-agent: AhrefsBot
+Disallow: /
+Crawl-delay: 10
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+| Rule | Detail |
+|---|---|
+| Paths | Must start with `/` or `*` |
+| Group without rules | Renders the empty `Disallow:` line — the protocol's "nothing is restricted" |
+| Sitemap URLs | Resolved against `metadataBase`, like every other crawler-facing URL |
+| Order | `User-agent`, `Allow`, `Disallow`, `Crawl-delay`; sitemaps last |
+
+### Serving it
+
+`RobotsTxtAction` is a PSR-15 handler; both dependencies come from the
+container, so the route is the whole integration:
+
+```php
+Route::get('/robots.txt')->action(RobotsTxtAction::class);
+```
+
+The document it serves is bound in DI from parameters:
+
+```php
+'rasuvaeff/yii3-seo' => [
+    'robotsTxt' => [
+        'indexable' => $_ENV['APP_ENV'] === 'prod',   // the application decides
+        'robots' => new RobotsTxt(...),               // optional; omit for "allow everything"
+    ],
+],
+```
+
+**The package never inspects the environment.** When `indexable` is `false` the
+bound document is `RobotsTxt::disallowAll()` — every crawler blocked, no sitemap
+advertised — regardless of what `robots` contains. A wrong guess here would
+either de-index production or expose staging, so the decision is always the
+application's, stated explicitly. `RobotsTxtResponseFactory` is available
+directly if a route needs to build the document per request.
+
+### `X-Robots-Tag`
+
+Responses without a `<head>` — generated PDFs, images, exports — carry the same
+policy as a header. `Robots::toHeaderValues()` returns one value per header
+line:
+
+```php
+foreach (Robots::noindex()->withGoogleBot('noindex', 'noimageindex')->toHeaderValues() as $value) {
+    $response = $response->withAddedHeader('X-Robots-Tag', $value);
+}
+```
+
+```
+X-Robots-Tag: noindex
+X-Robots-Tag: googlebot: noindex, noimageindex
+```
+
 ## Security
 
-- Crawler-facing URLs (canonical, hreflang, `og:image`, `og:url`, `twitter:image`) are resolved against `metadataBase`; absolute URLs are validated with `FILTER_VALIDATE_URL`. A relative URL with no base throws `InvalidArgumentException`.
+- Crawler-facing URLs (canonical, hreflang, `og:image`, `og:url`, `twitter:image`, and every sitemap URL) are resolved against `metadataBase`; absolute URLs are validated with `FILTER_VALIDATE_URL`. A relative URL with no base throws `InvalidArgumentException`.
 - HTML escaping is handled by `Yiisoft\Html` — no raw string concatenation.
+- Sitemap XML escaping is handled by `XMLWriter`; only the fixed document header and footer are literals, and they carry no input.
+- `robots.txt` values are rejected when they contain a control character, so configuration cannot forge an extra directive line. Whether a site may be indexed is never guessed from the environment — the application passes it in.
 - JSON-LD uses `JSON_HEX_TAG` to prevent `</script>` injection.
 
 ## Examples
 
 See [`examples/`](examples/) for runnable scripts and a Yii3 integration sketch:
-[`examples/yii3-app.php`](examples/yii3-app.php).
+[`examples/yii3-app.php`](examples/yii3-app.php). Sitemap generation and file
+export: [`examples/sitemap.php`](examples/sitemap.php); crawl policy:
+[`examples/robots-txt.php`](examples/robots-txt.php).
 
-See [ROADMAP.md](ROADMAP.md) for planned automatic canonical URLs, diagnostics,
-sitemaps, `robots.txt` and curated structured-data builders.
+See [ROADMAP.md](ROADMAP.md) for planned curated structured-data builders.
 
 ## Development
 

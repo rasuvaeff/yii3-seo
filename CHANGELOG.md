@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.2.0 — 2026-07-31
+
+- Add XML sitemap generation: typed `SitemapUrl` (with `lastmod`, `changefreq`,
+  `priority`, `<image:image>` entries and `xhtml` hreflang alternates),
+  `Sitemap`, `SitemapIndex`/`SitemapIndexEntry` and `SitemapProviderInterface`
+  for application-owned URL sources. Documents implement
+  `SitemapDocumentInterface` and are emitted as chunks, so a provider backed by
+  a database cursor never materialises its result set. Sitemap URLs resolve
+  against `metadataBase` through the same `UrlResolver` the head metadata uses,
+  and values are escaped by `XMLWriter`.
+- Add `SitemapFileExporter`: writes a URL stream to files, enforcing both
+  protocol limits (50 000 URLs and 50 MiB per file, configurable down through
+  `SitemapLimits`) by measuring each rendered entry before appending it, and
+  writing the matching `sitemap.xml` index when the stream does not fit into a
+  single file. It is registered in the package DI config and inherits
+  `metadataBase` from `MetadataDefaults`; the new `rasuvaeff/yii3-seo` →
+  `sitemap` → `publicPath` parameter prefixes the index entries.
+- Add `SitemapResponseFactory`, which serves a sitemap document as a PSR-7
+  response through a `php://temp` stream.
+- Add a typed `robots.txt`: `RobotsTxt` with ordered `RobotsTxtGroup` blocks
+  (`User-agent`, `Allow`, `Disallow`, `Crawl-delay`) and `Sitemap` references
+  resolved against `metadataBase`. User agents and paths carrying a control
+  character are rejected, so configuration cannot forge an extra directive line.
+- Add `RobotsTxtAction` (a PSR-15 handler ready for a `/robots.txt` route) and
+  `RobotsTxtResponseFactory`. `RobotsTxt::class` is bound in the package DI
+  config from the new `rasuvaeff/yii3-seo` → `robotsTxt` parameter: setting
+  `indexable` to `false` serves `RobotsTxt::disallowAll()` and advertises no
+  sitemap. The package never inspects the environment itself.
+- Add `Robots::toHeaderValues()`, which serializes a page policy as
+  `X-Robots-Tag` header values for responses that have no `<head>`.
+- Require `ext-xmlwriter` and `psr/http-factory`.
+
 ## 1.1.0 — 2026-07-29
 
 - Ship an agent skill (`resources/skills/rasuvaeff-yii3-seo/SKILL.md`) declared
