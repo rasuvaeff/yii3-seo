@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-07-31
 
 - Add XML sitemap generation: typed `SitemapUrl` (with `lastmod`, `changefreq`,
   `priority`, `<image:image>` entries and `xhtml` hreflang alternates),
