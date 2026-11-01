@@ -11,6 +11,7 @@ use Rasuvaeff\Yii3Seo\SitemapLimits;
 use Rasuvaeff\Yii3Seo\SitemapUrl;
 use Rasuvaeff\Yii3Seo\SitemapXmlWriter;
 use Rasuvaeff\Yii3Seo\UrlResolver;
+use RuntimeException;
 use Testo\Assert;
 use Testo\Codecov\Covers;
 use Testo\Lifecycle\AfterTest;
@@ -185,6 +186,46 @@ final class SitemapFileExporterTest
             Assert::fail('Expected InvalidArgumentException');
         } catch (InvalidArgumentException $e) {
             Assert::string($e->getMessage())->contains('does not fit into the configured byte limit');
+        }
+    }
+
+    public function throwsWhenTheSitemapFileCannotBeWritten(): void
+    {
+        if (!file_exists('/dev/full')) {
+            Assert::false(is_link($this->path('sitemap-1.xml')));
+
+            return;
+        }
+
+        symlink('/dev/full', $this->path('sitemap-1.xml'));
+        set_error_handler(static fn(): bool => true);
+
+        try {
+            $this->exporter()->export([new SitemapUrl('/a')], $this->directory);
+            Assert::fail('Expected RuntimeException');
+        } catch (RuntimeException $e) {
+            Assert::same($e->getMessage(), 'Unable to write to sitemap file "' . $this->path('sitemap-1.xml') . '"');
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    public function throwsWhenTheSitemapFileCannotBeRenamed(): void
+    {
+        mkdir($this->path('sitemap.xml'));
+        set_error_handler(static fn(): bool => true);
+
+        try {
+            $this->exporter()->export([new SitemapUrl('/a')], $this->directory);
+            Assert::fail('Expected RuntimeException');
+        } catch (RuntimeException $e) {
+            Assert::same(
+                $e->getMessage(),
+                'Unable to rename sitemap file "' . $this->path('sitemap-1.xml') . '" to "' . $this->path('sitemap.xml') . '"',
+            );
+        } finally {
+            restore_error_handler();
+            rmdir($this->path('sitemap.xml'));
         }
     }
 

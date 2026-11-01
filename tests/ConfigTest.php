@@ -101,7 +101,7 @@ final class ConfigTest
     public function composerDeclaresEveryConfigGroupFile(): void
     {
         $composer = json_decode(
-            (string) file_get_contents(dirname(__DIR__) . '/composer.json'),
+            (string) file_get_contents(__DIR__ . '/../composer.json'),
             true,
             flags: JSON_THROW_ON_ERROR,
         );
@@ -113,7 +113,7 @@ final class ConfigTest
         ]);
 
         foreach ($composer['extra']['config-plugin'] as $file) {
-            Assert::true(is_file(dirname(__DIR__) . '/config/' . $file), "config/{$file} is missing");
+            Assert::true(is_file(__DIR__ . '/../config/' . $file), "config/{$file} is missing");
         }
     }
 
@@ -122,7 +122,7 @@ final class ConfigTest
     {
         $params = $this->params();
 
-        return require dirname(__DIR__) . '/config/di.php';
+        return require __DIR__ . '/../config/di.php';
     }
 
     /**
@@ -134,18 +134,18 @@ final class ConfigTest
     {
         $params = array_replace_recursive($this->params(), $params);
 
-        return require dirname(__DIR__) . '/config/di.php';
+        return require __DIR__ . '/../config/di.php';
     }
 
     /** @return array<string, mixed> */
     private function eventsWeb(): array
     {
-        return require dirname(__DIR__) . '/config/events-web.php';
+        return require __DIR__ . '/../config/events-web.php';
     }
 
     /** @return array<string, mixed> */
     private function params(): array
     {
-        return require dirname(__DIR__) . '/config/params.php';
+        return require __DIR__ . '/../config/params.php';
     }
 }
