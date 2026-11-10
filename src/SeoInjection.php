@@ -198,8 +198,10 @@ final class SeoInjection implements LayoutParametersInjectionInterface, MetaTags
         $alternates = $metadata->getAlternates();
 
         if ($alternates instanceof \Rasuvaeff\Yii3Seo\Alternates) {
-            if ($alternates->getCanonical() !== null) {
-                $tags['canonical'] = Html::link()->rel('canonical')->href($resolver->resolve($alternates->getCanonical()));
+            $canonical = $alternates->getCanonical();
+
+            if ($canonical !== null) {
+                $tags['canonical'] = Html::link()->rel('canonical')->href($resolver->resolve($canonical));
             }
 
             foreach ($alternates->getLanguages() as $locale => $url) {
